@@ -1,0 +1,245 @@
+@use '@/styles/variables.scss' as *;
+
+.container {
+  min-height: 100vh;
+  background: $color-bg-page;
+  padding: $spacing-lg $page-padding 120rpx;
+}
+
+.tabs {
+  display: flex;
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  padding: $spacing-xs;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-card;
+}
+
+.tabItem {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+  transition: all $transition-base;
+  
+  &.active {
+    background: $color-primary;
+    color: $color-text-white;
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.formCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  box-shadow: $shadow-card;
+  margin-bottom: $spacing-lg;
+}
+
+.formTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-md;
+  border-bottom: 1rpx solid $color-divider;
+}
+
+.formItem {
+  margin-bottom: $spacing-lg;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.formLabel {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  margin-bottom: $spacing-sm;
+}
+
+.required {
+  color: $color-error;
+  margin-right: $spacing-xs;
+}
+
+.typeSelect {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.typeTag {
+  padding: $spacing-sm $spacing-md;
+  background: $color-bg-page;
+  border-radius: $radius-sm;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  border: 2rpx solid transparent;
+  transition: all $transition-base;
+  
+  &.active {
+    background: rgba(22, 93, 255, 0.1);
+    color: $color-primary;
+    border-color: $color-primary;
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.textarea {
+  width: 100%;
+  min-height: 240rpx;
+  background: $color-bg-page;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  box-sizing: border-box;
+  line-height: $line-height-normal;
+  
+  &:focus {
+    border-color: $color-primary;
+  }
+}
+
+.wordCount {
+  text-align: right;
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  margin-top: $spacing-xs;
+}
+
+.contactInput {
+  width: 100%;
+  height: 88rpx;
+  background: $color-bg-page;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-md;
+  padding: 0 $spacing-md;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  box-sizing: border-box;
+  
+  &:focus {
+    border-color: $color-primary;
+  }
+}
+
+.submitBtn {
+  @include button-reset;
+  width: 100%;
+  height: $button-height-lg;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  color: $color-text-white;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-button;
+  margin-top: $spacing-xl;
+  
+  &:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+}
+
+.feedbackCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  box-shadow: $shadow-card;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.feedbackType {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.statusTag {
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  font-weight: $font-weight-medium;
+}
+
+.feedbackContent {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  line-height: $line-height-normal;
+  margin-bottom: $spacing-md;
+}
+
+.feedbackTime {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.replySection {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1rpx solid $color-divider;
+}
+
+.replyLabel {
+  font-size: $font-size-sm;
+  color: $color-primary;
+  font-weight: $font-weight-medium;
+  margin-bottom: $spacing-xs;
+}
+
+.replyContent {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  line-height: $line-height-normal;
+  background: $color-bg-page;
+  padding: $spacing-md;
+  border-radius: $radius-sm;
+}
+
+.replyTime {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  margin-top: $spacing-xs;
+  text-align: right;
+}
+
+.emptyState {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: 120rpx $spacing-xl;
+  text-align: center;
+  box-shadow: $shadow-card;
+}
+
+.emptyIcon {
+  font-size: 100rpx;
+  margin-bottom: $spacing-md;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+}

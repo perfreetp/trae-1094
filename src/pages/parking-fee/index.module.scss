@@ -1,0 +1,228 @@
+@use '@/styles/variables.scss' as *;
+
+.container {
+  min-height: 100vh;
+  background: $color-bg-page;
+  padding: $spacing-lg $page-padding 120rpx;
+}
+
+.tabs {
+  display: flex;
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  padding: $spacing-xs;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-card;
+}
+
+.tabItem {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+  transition: all $transition-base;
+  
+  &.active {
+    background: $color-primary;
+    color: $color-text-white;
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.summaryCard {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  margin-bottom: $spacing-lg;
+  color: $color-text-white;
+}
+
+.summaryTitle {
+  font-size: $font-size-md;
+  opacity: 0.9;
+  margin-bottom: $spacing-md;
+}
+
+.summaryAmount {
+  font-size: 64rpx;
+  font-weight: $font-weight-bold;
+  margin-bottom: $spacing-lg;
+}
+
+.summaryStats {
+  display: flex;
+  justify-content: space-between;
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statValue {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-semibold;
+  margin-bottom: $spacing-xs;
+}
+
+.statLabel {
+  font-size: $font-size-sm;
+  opacity: 0.8;
+}
+
+.parkingCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  box-shadow: $shadow-card;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
+  padding-bottom: $spacing-md;
+  border-bottom: 1rpx solid $color-divider;
+}
+
+.plateNumber {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-primary;
+}
+
+.statusTag {
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  font-weight: $font-weight-medium;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: $spacing-sm;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.infoLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  min-width: 120rpx;
+}
+
+.infoValue {
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  flex: 1;
+}
+
+.feeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1rpx solid $color-divider;
+}
+
+.feeLabel {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.feeAmount {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-error;
+}
+
+.freeTag {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-success;
+}
+
+.actionRow {
+  display: flex;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
+}
+
+.btnReduce {
+  @include button-reset;
+  flex: 1;
+  height: $button-height-md;
+  background: rgba(255, 125, 0, 0.1);
+  color: $color-warning;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-button;
+  
+  &:active {
+    background: rgba(255, 125, 0, 0.2);
+  }
+}
+
+.btnPay {
+  @include button-reset;
+  flex: 1;
+  height: $button-height-md;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  color: $color-text-white;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-button;
+  
+  &:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+}
+
+.emptyState {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: 120rpx $spacing-xl;
+  text-align: center;
+  box-shadow: $shadow-card;
+}
+
+.emptyIcon {
+  font-size: 100rpx;
+  margin-bottom: $spacing-md;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+}
+
+.exportBtn {
+  @include button-reset;
+  width: 100%;
+  height: $button-height-lg;
+  background: $color-bg-card;
+  color: $color-primary;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-button;
+  border: 2rpx solid $color-primary;
+  margin-top: $spacing-lg;
+  
+  &:active {
+    background: rgba(22, 93, 255, 0.05);
+  }
+}

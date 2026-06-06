@@ -1,0 +1,240 @@
+@use '@/styles/variables.scss' as *;
+
+.container {
+  min-height: 100vh;
+  background: $color-bg-page;
+  padding: $spacing-lg $page-padding 160rpx;
+}
+
+.inviteCodeCard {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  text-align: center;
+  color: $color-text-white;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-card;
+}
+
+.codeLabel {
+  font-size: $font-size-md;
+  opacity: 0.9;
+  margin-bottom: $spacing-md;
+}
+
+.codeValue {
+  font-size: 72rpx;
+  font-weight: $font-weight-bold;
+  letter-spacing: 16rpx;
+  margin-bottom: $spacing-lg;
+  font-family: 'Courier New', monospace;
+}
+
+.codeTips {
+  font-size: $font-size-sm;
+  opacity: 0.8;
+}
+
+.qrCodeArea {
+  width: 300rpx;
+  height: 300rpx;
+  margin: 0 auto $spacing-lg;
+  background: $color-text-white;
+  border-radius: $radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qrIcon {
+  font-size: 120rpx;
+}
+
+.detailCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  box-shadow: $shadow-card;
+  margin-bottom: $spacing-lg;
+}
+
+.cardTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-lg;
+  padding-bottom: $spacing-md;
+  border-bottom: 1rpx solid $color-divider;
+}
+
+.infoRow {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: $spacing-md;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.infoLabel {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  min-width: 140rpx;
+  flex-shrink: 0;
+}
+
+.infoValue {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  flex: 1;
+  word-break: break-all;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.statusTag {
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  font-weight: $font-weight-medium;
+}
+
+.formCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  box-shadow: $shadow-card;
+  margin-bottom: $spacing-lg;
+}
+
+.formItem {
+  margin-bottom: $spacing-lg;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.formLabel {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  margin-bottom: $spacing-sm;
+}
+
+.required {
+  color: $color-error;
+  margin-right: $spacing-xs;
+}
+
+.formInput {
+  width: 100%;
+  height: 88rpx;
+  background: $color-bg-page;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-md;
+  padding: 0 $spacing-md;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  box-sizing: border-box;
+  
+  &:focus {
+    border-color: $color-primary;
+  }
+}
+
+.plateInput {
+  text-transform: uppercase;
+  letter-spacing: 4rpx;
+  font-weight: $font-weight-semibold;
+}
+
+.timeRow {
+  display: flex;
+  gap: $spacing-md;
+}
+
+.timeItem {
+  flex: 1;
+}
+
+.timePicker {
+  display: flex;
+  align-items: center;
+  height: 88rpx;
+  background: $color-bg-page;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-md;
+  padding: 0 $spacing-md;
+  
+  &:active {
+    border-color: $color-primary;
+  }
+}
+
+.pickerText {
+  flex: 1;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+}
+
+.pickerPlaceholder {
+  color: $color-text-tertiary;
+}
+
+.buildingRow {
+  display: flex;
+  gap: $spacing-md;
+}
+
+.buildingItem {
+  flex: 1;
+}
+
+.bottomActions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: $spacing-lg $page-padding;
+  background: $color-bg-card;
+  box-shadow: $shadow-float;
+  display: flex;
+  gap: $spacing-md;
+}
+
+.btnSecondary {
+  @include button-reset;
+  flex: 1;
+  height: $button-height-lg;
+  background: $color-bg-page;
+  color: $color-text-secondary;
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-button;
+  
+  &:active {
+    background: $color-border;
+  }
+}
+
+.btnPrimary {
+  @include button-reset;
+  flex: 1;
+  height: $button-height-lg;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  color: $color-text-white;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-button;
+  
+  &:active {
+    opacity: 0.9;
+    transform: scale(0.98);
+  }
+}
