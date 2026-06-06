@@ -22,8 +22,10 @@ interface AppContextType extends AppState {
   addBlacklist: (plateNumber: string, reason: string) => void;
   confirmEntry: (inviteId: string) => boolean;
   calculateFee: (recordId: string) => number;
+  getOriginalFee: (recordId: string) => number;
   reduceFee: (recordId: string, amount: number, reason: string) => void;
   payFee: (recordId: string) => void;
+  confirmExit: (recordId: string) => void;
   addMessage: (message: Omit<MessageInfo, 'id' | 'createTime' | 'isRead'>) => void;
   markMessageRead: (id: string) => void;
   markAllMessagesRead: () => void;
@@ -218,7 +220,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return true;
   };
 
-  const calculateFee: AppContextType['calculateFee'] = (recordId) => {
+  const getOriginalFee: AppContextType['getOriginalFee'] = (recordId) => {
     const record = parkingRecords.find(r => r.id === recordId);
     if (!record) return 0;
     
@@ -235,12 +237,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return Math.min(fee, maxDailyFee);
   };
 
+  const calculateFee: AppContextType['calculateFee'] = (recordId) => {
+    const record = parkingRecords.find(r => r.id === recordId);
+    if (!record) return 0;
+    
+    const originalFee = getOriginalFee(recordId);
+    const reducedAmount = record.reducedAmount || 0;
+    return Math.max(0, originalFee - reducedAmount);
+  };
+
   const reduceFee: AppContextType['reduceFee'] = (recordId, amount, reason) => {
-    setParkingRecords(prev => prev.map(r => 
-      r.id === recordId 
-        ? { ...r, fee: Math.max(0, r.fee - amount), remark: reason }
-        : r
-    ));
+    setParkingRecords(prev => prev.map(r => {
+      if (r.id !== recordId) return r;
+      const currentReduced = r.reducedAmount || 0;
+      const newReduced = currentReduced + amount;
+      const originalFee = (() => {
+        const enter = new Date(r.enterTime).getTime();
+        const exit = r.exitTime ? new Date(r.exitTime).getTime() : Date.now();
+        const hours = Math.ceil((exit - enter) / (1000 * 60 * 60));
+        const firstHourFree = 1;
+        const hourlyRate = 5;
+        const maxDailyFee = 50;
+        if (hours <= firstHourFree) return 0;
+        return Math.min((hours - firstHourFree) * hourlyRate, maxDailyFee);
+      })();
+      const finalReduced = Math.min(newReduced, originalFee);
+      return { 
+        ...r, 
+        reducedAmount: finalReduced, 
+        remark: reason,
+        fee: Math.max(0, originalFee - finalReduced)
+      };
+    }));
   };
 
   const payFee: AppContextType['payFee'] = (recordId) => {
@@ -249,24 +277,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     setParkingRecords(prev => prev.map(r => 
       r.id === recordId 
-        ? { ...r, status: 'paid', fee, exitTime: new Date().toISOString() }
+        ? { ...r, status: 'paid', fee }
         : r
     ));
 
     if (record) {
-      setInvites(prev => prev.map(i => 
-        i.plateNumber === record.plateNumber && i.status === 'entered'
-          ? { ...i, status: 'exited', exitTime: new Date().toISOString(), parkingFee: fee }
-          : i
-      ));
-
       addMessage({
         type: 'fee',
         title: '缴费成功通知',
-        content: `车辆 ${record.plateNumber} 停车费 ¥${fee} 已支付，祝您一路平安`,
+        content: `车辆 ${record.plateNumber} 停车费 ¥${fee} 已支付，可凭缴费记录离场`,
         relatedId: recordId
       });
     }
+  };
+
+  const confirmExit: AppContextType['confirmExit'] = (recordId) => {
+    const record = parkingRecords.find(r => r.id === recordId);
+    if (!record) return;
+    
+    const exitTime = new Date().toISOString();
+    setParkingRecords(prev => prev.map(r => 
+      r.id === recordId 
+        ? { ...r, status: 'exited', exitTime }
+        : r
+    ));
+
+    setInvites(prev => prev.map(i => 
+      i.plateNumber === record.plateNumber && (i.status === 'entered' || i.status === 'approved')
+        ? { ...i, status: 'exited', exitTime, parkingFee: record.fee }
+        : i
+    ));
+
+    addMessage({
+      type: 'system',
+      title: '车辆离场通知',
+      content: `车辆 ${record.plateNumber} 已确认离场，欢迎下次光临`,
+      relatedId: recordId
+    });
   };
 
   const markMessageRead: AppContextType['markMessageRead'] = (id) => {
@@ -329,8 +376,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (filters.visitorName && !record.visitorName.includes(filters.visitorName)) return false;
       if (filters.building && !record.building.includes(filters.building)) return false;
       if (filters.status && record.status !== filters.status) return false;
-      if (filters.startTime && new Date(record.enterTime) < new Date(filters.startTime)) return false;
-      if (filters.endTime && new Date(record.enterTime) > new Date(filters.endTime)) return false;
+      if (filters.startTime) {
+        const startDate = new Date(filters.startTime);
+        startDate.setHours(0, 0, 0, 0);
+        if (new Date(record.enterTime) < startDate) return false;
+      }
+      if (filters.endTime) {
+        const endDate = new Date(filters.endTime);
+        endDate.setHours(23, 59, 59, 999);
+        if (new Date(record.enterTime) > endDate) return false;
+      }
       return true;
     });
   };
@@ -349,8 +404,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addBlacklist,
     confirmEntry,
     calculateFee,
+    getOriginalFee,
     reduceFee,
     payFee,
+    confirmExit,
     addMessage,
     markMessageRead,
     markAllMessagesRead,

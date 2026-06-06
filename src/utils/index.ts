@@ -41,7 +41,7 @@ export const getStatusText = (status: string): string => {
     exited: '已离场',
     expired: '已过期',
     parking: '停车中',
-    paid: '已缴费',
+    paid: '已缴费/可离场',
     processing: '处理中',
     resolved: '已解决'
   };

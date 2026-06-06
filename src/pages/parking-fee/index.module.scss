@@ -569,3 +569,31 @@
   font-size: $font-size-md !important;
   font-weight: $font-weight-bold !important;
 }
+
+.feeOriginal {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  text-decoration: line-through;
+  margin-left: $spacing-xs;
+}
+
+.reduceHighlight {
+  color: $color-success !important;
+  font-size: $font-size-sm !important;
+  font-weight: $font-weight-bold !important;
+}
+
+.exitBtn {
+  @include button-reset;
+  flex: 1;
+  height: $button-height-md;
+  background: linear-gradient(135deg, $color-success 0%, #23C343 100%);
+  color: $color-text-white;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  border-radius: $radius-sm;
+  
+  &:active {
+    opacity: 0.9;
+  }
+}

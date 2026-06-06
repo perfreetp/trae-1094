@@ -5,10 +5,10 @@ import classnames from 'classnames';
 import styles from './index.module.scss';
 import { ParkingRecord } from '@/types';
 import { useApp } from '@/store/appStore';
-import { formatTime, getStatusText, getStatusColor } from '@/utils';
+import { formatTime, formatDate, getStatusText, getStatusColor } from '@/utils';
 
 const LedgerPage: React.FC = () => {
-  const { getRecordsByFilter, parkingRecords, invites } = useApp();
+  const { getRecordsByFilter, parkingRecords, invites, calculateFee, getOriginalFee } = useApp();
   
   const [showFilter, setShowFilter] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ParkingRecord | null>(null);
@@ -27,7 +27,7 @@ const LedgerPage: React.FC = () => {
   const statusOptions = [
     { key: '', label: '全部状态' },
     { key: 'parking', label: '停车中' },
-    { key: 'paid', label: '已缴费' },
+    { key: 'paid', label: '已缴费/可离场' },
     { key: 'exited', label: '已离场' }
   ];
 
@@ -37,14 +37,8 @@ const LedgerPage: React.FC = () => {
   });
 
   const totalRecords = parkingRecords.length;
-  const totalFee = parkingRecords.reduce((sum, r) => {
-    const enter = new Date(r.enterTime).getTime();
-    const exit = r.exitTime ? new Date(r.exitTime).getTime() : Date.now();
-    const hours = Math.ceil((exit - enter) / (1000 * 60 * 60));
-    const fee = hours > 1 ? Math.min((hours - 1) * 5, 50) : 0;
-    return sum + fee;
-  }, 0);
-  const parkingCount = parkingRecords.filter(r => r.status === 'parking').length;
+  const totalFee = parkingRecords.reduce((sum, r) => sum + calculateFee(r.id), 0);
+  const parkingCount = parkingRecords.filter(r => r.status === 'parking' || r.status === 'paid').length;
 
   const getInviteRemark = (plateNumber: string) => {
     const invite = invites.find(i => i.plateNumber === plateNumber);
@@ -63,6 +57,10 @@ const LedgerPage: React.FC = () => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
+  const handleDateChange = (key: string, e: any) => {
+    setFilters(prev => ({ ...prev, [key]: e.detail.value }));
+  };
+
   const handleReset = () => {
     setFilters({
       plateNumber: '',
@@ -72,6 +70,11 @@ const LedgerPage: React.FC = () => {
       endTime: '',
       status: ''
     });
+  };
+
+  const handleApplyFilter = () => {
+    setShowFilter(false);
+    Taro.showToast({ title: '筛选已应用', icon: 'success' });
   };
 
   const handleExport = () => {
@@ -104,18 +107,9 @@ const LedgerPage: React.FC = () => {
     return `${hours}小时${minutes}分钟`;
   };
 
-  const calculateFee = (enterTime: string, exitTime?: string) => {
-    const enter = new Date(enterTime).getTime();
-    const exit = exitTime ? new Date(exitTime).getTime() : Date.now();
-    const hours = Math.ceil((exit - enter) / (1000 * 60 * 60));
-    const firstHourFree = 1;
-    const hourlyRate = 5;
-    const maxDailyFee = 50;
-    
-    if (hours <= firstHourFree) return 0;
-    const fee = (hours - firstHourFree) * hourlyRate;
-    return Math.min(fee, maxDailyFee);
-  };
+  const hasActiveFilters = filters.plateNumber || filters.visitorName || 
+                         filters.building || filters.status || 
+                         filters.startTime || filters.endTime;
 
   return (
     <ScrollView scrollY className={styles.container}>
@@ -139,7 +133,7 @@ const LedgerPage: React.FC = () => {
       <View className={styles.filterBar}>
         <Button className={styles.filterBtn} onClick={() => setShowFilter(!showFilter)}>
           <Text>🔍 筛选</Text>
-          {(filters.plateNumber || filters.visitorName || filters.building || filters.status) && (
+          {hasActiveFilters && (
             <Text className={styles.filterBadge}></Text>
           )}
         </Button>
@@ -202,23 +196,60 @@ const LedgerPage: React.FC = () => {
             </Picker>
           </View>
           
+          <View className={styles.filterRow}>
+            <Text className={styles.filterLabel}>开始时间</Text>
+            <Picker
+              mode='date'
+              value={filters.startTime}
+              onChange={(e) => handleDateChange('startTime', e)}
+            >
+              <View className={styles.filterPicker}>
+                <Text className={classnames(!filters.startTime && styles.placeholder)}>
+                  {filters.startTime || '选择开始日期'}
+                </Text>
+                <Text>📅</Text>
+              </View>
+            </Picker>
+          </View>
+          
+          <View className={styles.filterRow}>
+            <Text className={styles.filterLabel}>结束时间</Text>
+            <Picker
+              mode='date'
+              value={filters.endTime}
+              onChange={(e) => handleDateChange('endTime', e)}
+            >
+              <View className={styles.filterPicker}>
+                <Text className={classnames(!filters.endTime && styles.placeholder)}>
+                  {filters.endTime || '选择结束日期'}
+                </Text>
+                <Text>📅</Text>
+              </View>
+            </Picker>
+          </View>
+          
           <View className={styles.filterActions}>
             <Button className={styles.resetBtn} onClick={handleReset}>重置</Button>
-            <Button className={styles.applyBtn} onClick={() => setShowFilter(false)}>确定</Button>
+            <Button className={styles.applyBtn} onClick={handleApplyFilter}>确定</Button>
           </View>
         </View>
       )}
 
       <View className={styles.resultInfo}>
         <Text className={styles.resultText}>共找到 {filteredRecords.length} 条记录</Text>
+        {hasActiveFilters && (
+          <Text className={styles.filterActiveTag}>已筛选</Text>
+        )}
       </View>
 
       {filteredRecords.length > 0 ? (
         filteredRecords.map((record) => {
-          const fee = calculateFee(record.enterTime, record.exitTime);
+          const fee = calculateFee(record.id);
+          const originalFee = getOriginalFee(record.id);
           const duration = getParkingDuration(record.enterTime, record.exitTime);
           const remark = getInviteRemark(record.plateNumber);
           const approveInfo = getApproveInfo(record.plateNumber);
+          const hasReduction = record.reducedAmount && record.reducedAmount > 0;
           
           return (
             <View key={record.id} className={styles.recordCard} onClick={() => handleViewDetail(record)}>
@@ -258,10 +289,13 @@ const LedgerPage: React.FC = () => {
                 <View className={styles.feeInfo}>
                   <Text className={styles.feeLabel}>费用：</Text>
                   <Text className={styles.feeValue}>¥{fee}</Text>
+                  {hasReduction && (
+                    <Text className={styles.feeOriginal}>原价¥{originalFee}</Text>
+                  )}
                 </View>
-                {remark && (
+                {(record.remark || remark) && (
                   <View className={styles.remarkInfo}>
-                    <Text className={styles.remarkText}>📝 {remark}</Text>
+                    <Text className={styles.remarkText}>📝 {record.remark || remark}</Text>
                   </View>
                 )}
                 {approveInfo?.approveTime && (
@@ -329,11 +363,25 @@ const LedgerPage: React.FC = () => {
               <View className={styles.detailSection}>
                 <Text className={styles.detailSectionTitle}>费用信息</Text>
                 <View className={styles.detailRow}>
-                  <Text className={styles.detailLabel}>停车费用</Text>
+                  <Text className={styles.detailLabel}>当前费用</Text>
                   <Text className={classnames(styles.detailValue, styles.feeHighlight)}>
-                    ¥{calculateFee(selectedRecord.enterTime, selectedRecord.exitTime)}
+                    ¥{calculateFee(selectedRecord.id)}
                   </Text>
                 </View>
+                {selectedRecord.reducedAmount && selectedRecord.reducedAmount > 0 && (
+                  <View className={styles.detailRow}>
+                    <Text className={styles.detailLabel}>原价</Text>
+                    <Text className={styles.detailValue}>¥{getOriginalFee(selectedRecord.id)}</Text>
+                  </View>
+                )}
+                {selectedRecord.reducedAmount && selectedRecord.reducedAmount > 0 && (
+                  <View className={styles.detailRow}>
+                    <Text className={styles.detailLabel}>减免金额</Text>
+                    <Text className={classnames(styles.detailValue, styles.reduceHighlight)}>
+                      -¥{selectedRecord.reducedAmount}
+                    </Text>
+                  </View>
+                )}
                 {selectedRecord.remark && (
                   <View className={styles.detailRow}>
                     <Text className={styles.detailLabel}>费用备注</Text>

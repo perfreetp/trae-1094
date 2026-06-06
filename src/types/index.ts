@@ -63,7 +63,9 @@ export interface ParkingRecord {
   parkingSpot: string;
   duration?: number;
   fee: number;
-  status: 'parking' | 'exited' | 'paid';
+  reducedAmount?: number;
+  remark?: string;
+  status: 'parking' | 'paid' | 'exited';
   building: string;
   room: string;
 }

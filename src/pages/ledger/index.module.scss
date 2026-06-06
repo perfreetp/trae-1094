@@ -419,3 +419,24 @@
   font-size: $font-size-md !important;
   font-weight: $font-weight-bold !important;
 }
+
+.feeOriginal {
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+  text-decoration: line-through;
+  margin-left: $spacing-xs;
+}
+
+.reduceHighlight {
+  color: $color-success !important;
+  font-size: $font-size-sm !important;
+  font-weight: $font-weight-bold !important;
+}
+
+.filterActiveTag {
+  font-size: 22rpx;
+  color: $color-primary;
+  background: rgba(22, 93, 255, 0.1);
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}

@@ -11,7 +11,7 @@ const ParkingFeePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('parking');
   const [selectedRecord, setSelectedRecord] = useState<ParkingRecord | null>(null);
   const [showDetail, setShowDetail] = useState(false);
-  const { parkingRecords, calculateFee, reduceFee, payFee, currentRole } = useApp();
+  const { parkingRecords, calculateFee, getOriginalFee, reduceFee, payFee, confirmExit, currentRole } = useApp();
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -23,17 +23,30 @@ const ParkingFeePage: React.FC = () => {
 
   const tabs = [
     { key: 'parking', label: '停车中' },
+    { key: 'paid', label: '已缴费' },
     { key: 'history', label: '历史记录' }
   ];
 
   const parkingList = parkingRecords.filter(r => r.status === 'parking');
-  const historyList = parkingRecords.filter(r => r.status !== 'parking');
-
-  const currentList = activeTab === 'parking' ? parkingList : historyList;
-
+  const paidList = parkingRecords.filter(r => r.status === 'paid');
+  const historyList = parkingRecords.filter(r => r.status === 'exited');
+  
   const totalFee = historyList.reduce((sum, r) => sum + calculateFee(r.id), 0);
-  const totalParking = parkingList.length;
+  const totalParking = parkingList.length + paidList.length;
   const totalCount = parkingRecords.length;
+
+  const handleConfirmExit = (record: ParkingRecord) => {
+    Taro.showModal({
+      title: '确认离场',
+      content: `确定车辆 ${record.plateNumber} 离场吗？`,
+      success: (res) => {
+        if (res.confirm) {
+          confirmExit(record.id);
+          Taro.showToast({ title: '已确认离场', icon: 'success' });
+        }
+      }
+    });
+  };
 
   const getParkingDuration = (enterTime: string) => {
     const enter = new Date(enterTime).getTime();
@@ -175,8 +188,11 @@ const ParkingFeePage: React.FC = () => {
             onClick={() => setActiveTab(tab.key)}
           >
             {tab.label}
-            {tab.key === 'parking' && totalParking > 0 && (
-              <Text className={styles.tabBadge}>{totalParking}</Text>
+            {tab.key === 'parking' && parkingList.length > 0 && (
+              <Text className={styles.tabBadge}>{parkingList.length}</Text>
+            )}
+            {tab.key === 'paid' && paidList.length > 0 && (
+              <Text className={styles.tabBadge}>{paidList.length}</Text>
             )}
           </View>
         ))}
@@ -234,8 +250,11 @@ const ParkingFeePage: React.FC = () => {
                 <View className={styles.feeInfo}>
                   <Text className={styles.feeLabel}>当前费用</Text>
                   <Text className={styles.feeValue}>¥{currentFee}</Text>
+                  {record.reducedAmount && record.reducedAmount > 0 && (
+                    <Text className={styles.feeOriginal}>原价¥{getOriginalFee(record.id)}</Text>
+                  )}
                   {record.remark && (
-                    <Text className={styles.feeRemark}>（已减免：{record.remark}）</Text>
+                    <Text className={styles.feeRemark}>（{record.remark}）</Text>
                   )}
                 </View>
               </View>
@@ -259,6 +278,11 @@ const ParkingFeePage: React.FC = () => {
                 {record.status === 'parking' && (
                   <Button className={styles.payBtn} onClick={() => handlePay(record)}>
                     {currentFee <= 0 ? '免费离场' : `缴费 ¥${currentFee}`}
+                  </Button>
+                )}
+                {record.status === 'paid' && currentRole === 'property' && (
+                  <Button className={styles.exitBtn} onClick={() => handleConfirmExit(record)}>
+                    确认离场
                   </Button>
                 )}
               </View>
@@ -311,12 +335,24 @@ const ParkingFeePage: React.FC = () => {
                 <Text className={styles.detailValue}>{selectedRecord.building} {selectedRecord.room}</Text>
               </View>
               <View className={styles.detailRow}>
-                <Text className={styles.detailLabel}>费用</Text>
+                <Text className={styles.detailLabel}>当前费用</Text>
                 <Text className={classnames(styles.detailValue, styles.feeHighlight)}>¥{calculateFee(selectedRecord.id)}</Text>
               </View>
+              {selectedRecord.reducedAmount && selectedRecord.reducedAmount > 0 && (
+                <View className={styles.detailRow}>
+                  <Text className={styles.detailLabel}>原价</Text>
+                  <Text className={styles.detailValue}>¥{getOriginalFee(selectedRecord.id)}</Text>
+                </View>
+              )}
+              {selectedRecord.reducedAmount && selectedRecord.reducedAmount > 0 && (
+                <View className={styles.detailRow}>
+                  <Text className={styles.detailLabel}>减免金额</Text>
+                  <Text className={classnames(styles.detailValue, styles.reduceHighlight)}>-¥{selectedRecord.reducedAmount}</Text>
+                </View>
+              )}
               {selectedRecord.remark && (
                 <View className={styles.detailRow}>
-                  <Text className={styles.detailLabel}>备注</Text>
+                  <Text className={styles.detailLabel}>费用备注</Text>
                   <Text className={styles.detailValue}>{selectedRecord.remark}</Text>
                 </View>
               )}

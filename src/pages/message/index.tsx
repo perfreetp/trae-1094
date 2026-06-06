@@ -13,6 +13,7 @@ const MessagePage: React.FC = () => {
   const tabs = [
     { key: 'all', label: '全部' },
     { key: 'system', label: '系统通知' },
+    { key: 'approve', label: '审核结果' },
     { key: 'entry', label: '入场通知' },
     { key: 'fee', label: '费用提醒' }
   ];
