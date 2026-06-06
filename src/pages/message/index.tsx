@@ -4,12 +4,11 @@ import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
 import MessageItem from '@/components/MessageItem';
-import { MessageInfo } from '@/types';
-import { mockMessages } from '@/data/messages';
+import { useApp } from '@/store/appStore';
 
 const MessagePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
-  const [messages, setMessages] = useState<MessageInfo[]>(mockMessages);
+  const { messages, markMessageRead, markAllMessagesRead } = useApp();
 
   const tabs = [
     { key: 'all', label: '全部' },
@@ -23,7 +22,7 @@ const MessagePage: React.FC = () => {
     : messages.filter(m => m.type === activeTab);
 
   const handleMarkAllRead = () => {
-    setMessages(prev => prev.map(m => ({ ...m, isRead: true })));
+    markAllMessagesRead();
     Taro.showToast({ title: '已全部标为已读', icon: 'success' });
   };
 
@@ -51,7 +50,7 @@ const MessagePage: React.FC = () => {
           >
             {tab.label}
             {tab.key === 'all' && unreadCount > 0 && (
-              <Text style={{ marginLeft: '8rpx', fontSize: '20rpx' }}>({unreadCount})</Text>
+              <Text className={styles.tabBadge}>{unreadCount}</Text>
             )}
           </View>
         ))}
@@ -63,11 +62,7 @@ const MessagePage: React.FC = () => {
             <MessageItem 
               key={message.id} 
               message={message}
-              onClick={() => {
-                setMessages(prev => prev.map(m => 
-                  m.id === message.id ? { ...m, isRead: true } : m
-                ));
-              }}
+              onClick={() => markMessageRead(message.id)}
             />
           ))
         ) : (

@@ -196,6 +196,72 @@
   flex: 1;
 }
 
+.frequentTip {
+  margin-top: $spacing-xs;
+  font-size: 24rpx;
+  color: $color-primary;
+}
+
+.autoApproveRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md;
+  background: $color-bg-page;
+  border-radius: $radius-md;
+  margin-top: $spacing-md;
+}
+
+.autoApproveInfo {
+  flex: 1;
+}
+
+.autoApproveLabel {
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  font-weight: $font-weight-medium;
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.autoApproveDesc {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+  display: block;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400rpx;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.qrBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.qrText {
+  font-size: 24rpx;
+  color: $color-text-secondary;
+}
+
+.statusRow {
+  margin-bottom: $spacing-sm;
+}
+
+.statusTag {
+  font-size: $font-size-sm;
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-weight: $font-weight-medium;
+}
+
 .bottomActions {
   position: fixed;
   bottom: 0;

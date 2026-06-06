@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, Button, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import styles from './index.module.scss';
-import { mockInvites } from '@/data/invites';
-import { mockParkingRecords } from '@/data/records';
-import { mockMessages } from '@/data/messages';
+import { useApp } from '@/store/appStore';
 
 const MinePage: React.FC = () => {
-  const [role, setRole] = useState<'owner' | 'visitor' | 'property'>('owner');
+  const { currentRole, invites, parkingRecords, messages, setCurrentRole } = useApp();
 
   const stats = [
-    { label: '发起邀请', value: mockInvites.filter(i => i.ownerId === 'o1').length },
-    { label: '停车记录', value: mockParkingRecords.length },
-    { label: '未读消息', value: mockMessages.filter(m => !m.isRead).length }
+    { label: '发起邀请', value: invites.length },
+    { label: '停车记录', value: parkingRecords.length },
+    { label: '未读消息', value: messages.filter(m => !m.isRead).length }
   ];
 
   const ownerMenus = [
@@ -24,16 +22,16 @@ const MinePage: React.FC = () => {
   ];
 
   const propertyMenus = [
-    { icon: '✅', text: '审核列表', path: '/pages/audit-list/index', badge: '2' },
+    { icon: '✅', text: '审核列表', path: '/pages/audit-list/index', badge: String(invites.filter(i => i.status === 'pending').length) },
     { icon: '🎫', text: '入场放行', path: '/pages/entry/index' },
-    { icon: '📊', text: '物业台账', path: '/pages/parking-fee/index' },
+    { icon: '📊', text: '物业台账', path: '/pages/ledger/index' },
     { icon: '📤', text: '记录导出', path: '' },
     { icon: '⚠️', text: '黑名单管理', path: '' },
     { icon: '💬', text: '投诉处理', path: '/pages/feedback/index' },
     { icon: '⚙️', text: '系统设置', path: '' }
   ];
 
-  const currentMenus = role === 'property' ? propertyMenus : ownerMenus;
+  const currentMenus = currentRole === 'property' ? propertyMenus : ownerMenus;
 
   const handleMenuClick = (path: string) => {
     if (path) {
@@ -48,7 +46,7 @@ const MinePage: React.FC = () => {
       itemList: ['业主', '访客', '物业前台'],
       success: (res) => {
         const roles: Array<'owner' | 'visitor' | 'property'> = ['owner', 'visitor', 'property'];
-        setRole(roles[res.tapIndex]);
+        setCurrentRole(roles[res.tapIndex]);
         Taro.showToast({ title: '切换成功', icon: 'success' });
       }
     });
@@ -56,7 +54,7 @@ const MinePage: React.FC = () => {
 
   const getRoleText = () => {
     const roleMap = { owner: '业主', visitor: '访客', property: '物业前台' };
-    return roleMap[role];
+    return roleMap[currentRole];
   };
 
   return (
@@ -94,7 +92,7 @@ const MinePage: React.FC = () => {
           >
             <View className={styles.menuIcon}>{menu.icon}</View>
             <Text className={styles.menuText}>{menu.text}</Text>
-            {menu.badge && <Text className={styles.menuBadge}>{menu.badge}</Text>}
+            {menu.badge && menu.badge !== '0' && <Text className={styles.menuBadge}>{menu.badge}</Text>}
             <Text className={styles.menuArrow}>›</Text>
           </View>
         ))}

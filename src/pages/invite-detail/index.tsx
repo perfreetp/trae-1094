@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, Input, ScrollView } from '@tarojs/components';
+import { View, Text, Button, Input, ScrollView, Switch } from '@tarojs/components';
 import Taro, { useRouter } from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
 import { InviteInfo } from '@/types';
-import { mockInvites } from '@/data/invites';
-import { formatTime, getStatusText, getStatusColor, generateInviteCode, generateParkingSpot } from '@/utils';
+import { useApp } from '@/store/appStore';
+import { formatTime, getStatusText, getStatusColor, validatePlateNumber } from '@/utils';
 
 const InviteDetailPage: React.FC = () => {
   const router = useRouter();
   const { id, new: isNew } = router.params;
+  
+  const { invites, vehicles, createInvite } = useApp();
   
   const [invite, setInvite] = useState<InviteInfo | null>(null);
   const [isCreateMode, setIsCreateMode] = useState(false);
@@ -21,19 +23,59 @@ const InviteDetailPage: React.FC = () => {
   const [room, setRoom] = useState('');
   const [visitStartTime, setVisitStartTime] = useState('');
   const [visitEndTime, setVisitEndTime] = useState('');
+  const [autoApprove, setAutoApprove] = useState(true);
 
   useEffect(() => {
     if (isNew) {
       setIsCreateMode(true);
       setBuilding('5栋');
       setRoom('1502');
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = now.getHours();
+      setVisitStartTime(`${year}-${month}-${day} ${hour < 10 ? '09' : hour < 14 ? '10' : '14'}:00:00`);
+      setVisitEndTime(`${year}-${month}-${day} 22:00:00`);
     } else if (id) {
-      const found = mockInvites.find(i => i.id === id);
+      const found = invites.find(i => i.id === id);
       if (found) {
         setInvite(found);
+      } else {
+        Taro.showToast({ title: '邀请不存在', icon: 'none' });
       }
     }
-  }, [id, isNew]);
+  }, [id, isNew, invites]);
+
+  const checkFrequentVisitor = (plate: string) => {
+    const vehicle = vehicles.find(v => v.plateNumber === plate.toUpperCase());
+    return vehicle && vehicle.visitCount >= 3;
+  };
+
+  const getFrequentVisitorInfo = (plate: string) => {
+    return vehicles.find(v => v.plateNumber === plate.toUpperCase());
+  };
+
+  const handlePlateChange = (e: any) => {
+    const value = e.detail.value.toUpperCase();
+    setPlateNumber(value);
+    if (checkFrequentVisitor(value)) {
+      const vehicle = getFrequentVisitorInfo(value);
+      if (vehicle) {
+        Taro.showModal({
+          title: '常用车辆快捷登记',
+          content: `检测到该车辆已来访${vehicle.visitCount}次，是否自动填充信息？`,
+          success: (res) => {
+            if (res.confirm) {
+              setVisitorName(vehicle.ownerName);
+              setVisitorPhone(vehicle.ownerPhone);
+              Taro.showToast({ title: '已自动填充', icon: 'success' });
+            }
+          }
+        });
+      }
+    }
+  };
 
   const handleBuildingSelect = () => {
     Taro.showActionSheet({
@@ -50,11 +92,9 @@ const InviteDetailPage: React.FC = () => {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
     
     Taro.showActionSheet({
-      itemList: ['今天 09:00', '今天 10:00', '今天 14:00', '明天 09:00', '明天 14:00', '自定义'],
+      itemList: ['今天 09:00', '今天 10:00', '今天 14:00', '明天 09:00', '明天 14:00'],
       success: (res) => {
         const times = [
           `${year}-${month}-${day} 09:00:00`,
@@ -63,9 +103,7 @@ const InviteDetailPage: React.FC = () => {
           `${year}-${month}-${Number(day) + 1} 09:00:00`,
           `${year}-${month}-${Number(day) + 1} 14:00:00`
         ];
-        if (res.tapIndex < 5) {
-          setVisitStartTime(times[res.tapIndex]);
-        }
+        setVisitStartTime(times[res.tapIndex]);
       }
     });
   };
@@ -77,7 +115,7 @@ const InviteDetailPage: React.FC = () => {
     const day = String(now.getDate()).padStart(2, '0');
     
     Taro.showActionSheet({
-      itemList: ['今天 12:00', '今天 18:00', '今天 22:00', '明天 12:00', '明天 18:00', '自定义'],
+      itemList: ['今天 12:00', '今天 18:00', '今天 22:00', '明天 12:00', '明天 18:00'],
       success: (res) => {
         const times = [
           `${year}-${month}-${day} 12:00:00`,
@@ -86,9 +124,7 @@ const InviteDetailPage: React.FC = () => {
           `${year}-${month}-${Number(day) + 1} 12:00:00`,
           `${year}-${month}-${Number(day) + 1} 18:00:00`
         ];
-        if (res.tapIndex < 5) {
-          setVisitEndTime(times[res.tapIndex]);
-        }
+        setVisitEndTime(times[res.tapIndex]);
       }
     });
   };
@@ -112,16 +148,20 @@ const InviteDetailPage: React.FC = () => {
   };
 
   const handleCreateInvite = () => {
-    if (!visitorName) {
+    if (!visitorName.trim()) {
       Taro.showToast({ title: '请输入访客姓名', icon: 'none' });
       return;
     }
-    if (!visitorPhone) {
-      Taro.showToast({ title: '请输入访客电话', icon: 'none' });
+    if (!visitorPhone || visitorPhone.length !== 11) {
+      Taro.showToast({ title: '请输入正确的手机号', icon: 'none' });
       return;
     }
     if (!plateNumber) {
       Taro.showToast({ title: '请输入车牌号', icon: 'none' });
+      return;
+    }
+    if (!validatePlateNumber(plateNumber)) {
+      Taro.showToast({ title: '请输入正确的车牌号', icon: 'none' });
       return;
     }
     if (!building) {
@@ -140,31 +180,51 @@ const InviteDetailPage: React.FC = () => {
       Taro.showToast({ title: '请选择结束时间', icon: 'none' });
       return;
     }
+    if (new Date(visitEndTime) <= new Date(visitStartTime)) {
+      Taro.showToast({ title: '结束时间需晚于开始时间', icon: 'none' });
+      return;
+    }
 
+    const isBlacklist = vehicles.some(v => v.plateNumber === plateNumber.toUpperCase() && v.isBlacklist);
+    if (isBlacklist) {
+      const vehicle = vehicles.find(v => v.plateNumber === plateNumber.toUpperCase());
+      Taro.showModal({
+        title: '黑名单车辆提醒',
+        content: `该车辆在黑名单中：${vehicle?.blacklistReason || '无原因'}\n\n是否继续提交？`,
+        success: (res) => {
+          if (res.confirm) {
+            submitInvite();
+          }
+        }
+      });
+    } else {
+      submitInvite();
+    }
+  };
+
+  const submitInvite = () => {
     Taro.showLoading({ title: '创建中...' });
+    
+    const newInvite = createInvite({
+      visitorName: visitorName.trim(),
+      visitorPhone,
+      plateNumber: plateNumber.toUpperCase(),
+      building,
+      room,
+      visitStartTime,
+      visitEndTime,
+      autoApprove
+    });
+    
     setTimeout(() => {
       Taro.hideLoading();
-      const newInvite: InviteInfo = {
-        id: String(Date.now()),
-        inviteCode: generateInviteCode(),
-        ownerId: 'o1',
-        ownerName: '张先生',
-        visitorName,
-        visitorPhone,
-        plateNumber: plateNumber.toUpperCase(),
-        building,
-        room,
-        visitStartTime,
-        visitEndTime,
-        status: 'approved',
-        parkingSpot: generateParkingSpot(),
-        createTime: new Date().toISOString(),
-        approveTime: new Date().toISOString()
-      };
       setInvite(newInvite);
       setIsCreateMode(false);
-      Taro.showToast({ title: '邀请创建成功', icon: 'success' });
-    }, 1000);
+      Taro.showToast({ 
+        title: newInvite.status === 'approved' ? '邀请创建成功，已自动通过' : '邀请创建成功，等待审核', 
+        icon: 'success' 
+      });
+    }, 800);
   };
 
   const handleInvalidate = () => {
@@ -222,9 +282,14 @@ const InviteDetailPage: React.FC = () => {
               className={classnames(styles.formInput, styles.plateInput)}
               placeholder='请输入车牌号，如：京A12345'
               value={plateNumber}
-              onInput={(e) => setPlateNumber(e.detail.value.toUpperCase())}
+              onInput={handlePlateChange}
               maxlength={8}
             />
+            {plateNumber && checkFrequentVisitor(plateNumber) && (
+              <Text className={styles.frequentTip}>
+                ✨ 常用车辆（来访{getFrequentVisitorInfo(plateNumber)?.visitCount}次）
+              </Text>
+            )}
           </View>
 
           <View className={styles.buildingRow}>
@@ -276,6 +341,18 @@ const InviteDetailPage: React.FC = () => {
               </View>
             </View>
           </View>
+
+          <View className={styles.autoApproveRow}>
+            <View className={styles.autoApproveInfo}>
+              <Text className={styles.autoApproveLabel}>自动通过审核</Text>
+              <Text className={styles.autoApproveDesc}>开启后普通访客自动通过，异常车辆需人工审核</Text>
+            </View>
+            <Switch
+              checked={autoApprove}
+              onChange={(e) => setAutoApprove(e.detail.value)}
+              color='#1677FF'
+            />
+          </View>
         </View>
 
         <View className={styles.bottomActions}>
@@ -293,7 +370,9 @@ const InviteDetailPage: React.FC = () => {
   if (!invite) {
     return (
       <View className={styles.container}>
-        <Text>加载中...</Text>
+        <View className={styles.loading}>
+          <Text>加载中...</Text>
+        </View>
       </View>
     );
   }
@@ -305,7 +384,10 @@ const InviteDetailPage: React.FC = () => {
         <Text className={styles.codeValue}>{invite.inviteCode}</Text>
         
         <View className={styles.qrCodeArea}>
-          <Text className={styles.qrIcon}>📱</Text>
+          <View className={styles.qrBox}>
+            <Text className={styles.qrIcon}>📱</Text>
+            <Text className={styles.qrText}>扫码入场</Text>
+          </View>
         </View>
         
         <View className={styles.statusRow}>
@@ -361,6 +443,13 @@ const InviteDetailPage: React.FC = () => {
           </View>
         )}
         
+        {invite.approveTime && (
+          <View className={styles.infoRow}>
+            <Text className={styles.infoLabel}>审核时间：</Text>
+            <Text className={styles.infoValue}>{formatTime(invite.approveTime)}</Text>
+          </View>
+        )}
+        
         {invite.enterTime && (
           <View className={styles.infoRow}>
             <Text className={styles.infoLabel}>入场时间：</Text>
@@ -382,6 +471,13 @@ const InviteDetailPage: React.FC = () => {
           </View>
         )}
         
+        {invite.remark && (
+          <View className={styles.infoRow}>
+            <Text className={styles.infoLabel}>备注：</Text>
+            <Text className={styles.infoValue} style={{ color: '#FF7D00' }}>{invite.remark}</Text>
+          </View>
+        )}
+        
         <View className={styles.infoRow}>
           <Text className={styles.infoLabel}>创建时间：</Text>
           <Text className={styles.infoValue}>{formatTime(invite.createTime)}</Text>
@@ -389,7 +485,7 @@ const InviteDetailPage: React.FC = () => {
       </View>
 
       <View className={styles.bottomActions}>
-        {invite.status === 'approved' && (
+        {(invite.status === 'approved' || invite.status === 'pending') && (
           <>
             <Button className={styles.btnSecondary} onClick={handleInvalidate}>
               作废邀请

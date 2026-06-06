@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, Button, ScrollView } from '@tarojs/components';
+import React from 'react';
+import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import styles from './index.module.scss';
 import InviteCard from '@/components/InviteCard';
-import { InviteInfo } from '@/types';
-import { mockInvites } from '@/data/invites';
+import { useApp } from '@/store/appStore';
 
 const HomePage: React.FC = () => {
-  const [invites, setInvites] = useState<InviteInfo[]>(mockInvites.slice(0, 3));
+  const { getMyInvites, currentRole, getUnreadMessageCount } = useApp();
+  const myInvites = getMyInvites().slice(0, 3);
+  const unreadCount = getUnreadMessageCount();
 
   const quickActions = [
     { icon: '📩', text: '发起邀请', bg: 'rgba(22, 93, 255, 0.1)', path: '/pages/invite-detail/index?new=true' },
@@ -67,9 +68,9 @@ const HomePage: React.FC = () => {
             <Text className={styles.seeAll}>查看全部</Text>
           </View>
           
-          {invites.length > 0 ? (
+          {myInvites.length > 0 ? (
             <View>
-              {invites.map((invite) => (
+              {myInvites.map((invite) => (
                 <InviteCard key={invite.id} invite={invite} />
               ))}
             </View>

@@ -121,13 +121,47 @@
   flex: 1;
 }
 
+.hasBlacklistWarning {
+  border: 2rpx solid rgba(245, 63, 63, 0.3);
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.infoGrid .infoLabel {
+  min-width: auto;
+  font-size: 24rpx;
+  color: $color-text-tertiary;
+}
+
+.infoGrid .infoValue {
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  font-weight: $font-weight-medium;
+}
+
 .blacklistWarning {
+  padding: $spacing-md;
+  background: rgba(245, 63, 63, 0.08);
+  border: 1rpx solid rgba(245, 63, 63, 0.2);
+  border-radius: $radius-md;
+  margin-bottom: $spacing-md;
+}
+
+.warningHeader {
   display: flex;
   align-items: center;
-  padding: $spacing-sm $spacing-md;
-  background: rgba(245, 63, 63, 0.1);
-  border-radius: $radius-sm;
-  margin-bottom: $spacing-md;
+  margin-bottom: $spacing-xs;
 }
 
 .warningIcon {
@@ -135,9 +169,89 @@
   margin-right: $spacing-sm;
 }
 
+.warningTitle {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: $color-error;
+}
+
 .warningText {
   font-size: $font-size-sm;
   color: $color-error;
+}
+
+.blacklistActions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-md;
+}
+
+.btnSmall {
+  @include button-reset;
+  flex: 1;
+  height: 56rpx;
+  font-size: 24rpx;
+  font-weight: $font-weight-medium;
+  border-radius: $radius-sm;
+}
+
+.btnBlacklist {
+  background: $color-error;
+  color: $color-text-white;
+  
+  &:active {
+    opacity: 0.9;
+  }
+}
+
+.btnSpecial {
+  background: $color-primary;
+  color: $color-text-white;
+  
+  &:active {
+    opacity: 0.9;
+  }
+}
+
+.expiredWarning {
+  background: rgba(255, 125, 0, 0.08);
+  border-color: rgba(255, 125, 0, 0.2);
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm $spacing-md;
+  
+  .warningText {
+    color: $color-warning;
+  }
+}
+
+.expired {
+  color: $color-text-tertiary !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.expiredText {
+  color: $color-text-tertiary;
+  text-decoration: line-through;
+}
+
+.remarkBox {
+  background: $color-bg-page;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-sm;
+  margin-bottom: $spacing-sm;
+  display: flex;
+}
+
+.remarkLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  min-width: 80rpx;
+}
+
+.remarkText {
+  font-size: $font-size-sm;
+  color: $color-warning;
   flex: 1;
 }
 

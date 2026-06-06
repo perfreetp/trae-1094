@@ -4,12 +4,13 @@ import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
 import { InviteInfo } from '@/types';
-import { mockInvites, mockVehicles } from '@/data/invites';
-import { formatTime, getStatusText, getStatusColor, generateParkingSpot } from '@/utils';
+import { useApp } from '@/store/appStore';
+import { formatTime, getStatusText, getStatusColor } from '@/utils';
 
 const AuditListPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('pending');
-  const [invites, setInvites] = useState<InviteInfo[]>(mockInvites);
+  const [approveRemark, setApproveRemark] = useState<{ [key: string]: string }>({});
+  const { invites, vehicles, approveInvite, rejectInvite, addBlacklist } = useApp();
 
   const tabs = [
     { key: 'pending', label: '待审核' },
@@ -18,34 +19,64 @@ const AuditListPage: React.FC = () => {
   ];
 
   const pendingCount = invites.filter(i => i.status === 'pending').length;
-
   const filteredInvites = invites.filter(i => i.status === activeTab);
 
   const checkBlacklist = (plateNumber: string) => {
-    return mockVehicles.some(v => v.plateNumber === plateNumber && v.isBlacklist);
+    return vehicles.some(v => v.plateNumber === plateNumber && v.isBlacklist);
   };
 
   const getBlacklistReason = (plateNumber: string) => {
-    const vehicle = mockVehicles.find(v => v.plateNumber === plateNumber);
+    const vehicle = vehicles.find(v => v.plateNumber === plateNumber);
     return vehicle?.blacklistReason || '';
   };
 
+  const isVisitExpired = (visitEndTime: string) => {
+    return new Date(visitEndTime) < new Date();
+  };
+
   const handleApprove = (invite: InviteInfo) => {
-    Taro.showModal({
-      title: '确认通过',
-      content: `确认通过访客 ${invite.visitorName} 的邀请申请？`,
-      success: (res) => {
-        if (res.confirm) {
-          const parkingSpot = generateParkingSpot();
-          setInvites(prev => prev.map(i => 
-            i.id === invite.id 
-              ? { ...i, status: 'approved', approveTime: new Date().toISOString(), parkingSpot }
-              : i
-          ));
-          Taro.showToast({ title: '审核通过', icon: 'success' });
+    const isBlacklist = checkBlacklist(invite.plateNumber);
+    const isExpired = isVisitExpired(invite.visitEndTime);
+
+    if (isBlacklist) {
+      Taro.showModal({
+        title: '黑名单车辆警告',
+        content: `该车辆（${invite.plateNumber}）在黑名单中：${getBlacklistReason(invite.plateNumber)}\n\n确认要特殊放行并添加备注吗？`,
+        editable: true,
+        placeholderText: '请输入放行原因',
+        confirmColor: '#1677FF',
+        success: (res) => {
+          if (res.confirm) {
+            approveInvite(invite.id, res.content || '黑名单车辆特殊放行');
+            Taro.showToast({ title: '已通过', icon: 'success' });
+          }
         }
-      }
-    });
+      });
+    } else if (isExpired) {
+      Taro.showModal({
+        title: '有效期已过',
+        content: '该邀请的到访时段已过期，确认要通过吗？',
+        success: (res) => {
+          if (res.confirm) {
+            approveInvite(invite.id);
+            Taro.showToast({ title: '已通过', icon: 'success' });
+          }
+        }
+      });
+    } else {
+      Taro.showModal({
+        title: '确认通过',
+        content: `确认通过访客 ${invite.visitorName} 的邀请申请？`,
+        editable: true,
+        placeholderText: '可选：填写备注信息',
+        success: (res) => {
+          if (res.confirm) {
+            approveInvite(invite.id, res.content);
+            Taro.showToast({ title: '审核通过', icon: 'success' });
+          }
+        }
+      });
+    }
   };
 
   const handleReject = (invite: InviteInfo) => {
@@ -54,13 +85,29 @@ const AuditListPage: React.FC = () => {
       editable: true,
       placeholderText: '请输入拒绝原因',
       success: (res) => {
-        if (res.confirm) {
-          setInvites(prev => prev.map(i => 
-            i.id === invite.id 
-              ? { ...i, status: 'rejected', approveTime: new Date().toISOString(), remark: res.content }
-              : i
-          ));
+        if (res.confirm && res.content) {
+          rejectInvite(invite.id, res.content);
           Taro.showToast({ title: '已拒绝', icon: 'success' });
+        } else if (res.confirm) {
+          Taro.showToast({ title: '请填写拒绝原因', icon: 'none' });
+        }
+      }
+    });
+  };
+
+  const handleAddBlacklist = (invite: InviteInfo) => {
+    Taro.showModal({
+      title: '加入黑名单',
+      editable: true,
+      content: '请输入加入黑名单的原因',
+      placeholderText: '例如：多次违规停车',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          addBlacklist(invite.plateNumber, res.content);
+          rejectInvite(invite.id, '车辆已加入黑名单');
+          Taro.showToast({ title: '已加入黑名单', icon: 'success' });
+        } else if (res.confirm) {
+          Taro.showToast({ title: '请填写原因', icon: 'none' });
         }
       }
     });
@@ -74,25 +121,8 @@ const AuditListPage: React.FC = () => {
       placeholderText: '请输入备注信息',
       success: (res) => {
         if (res.confirm) {
-          setInvites(prev => prev.map(i => 
-            i.id === invite.id ? { ...i, remark: res.content } : i
-          ));
+          setApproveRemark(prev => ({ ...prev, [invite.id]: res.content || '' }));
           Taro.showToast({ title: '备注已添加', icon: 'success' });
-        }
-      }
-    });
-  };
-
-  const handleAddBlacklist = (invite: InviteInfo) => {
-    Taro.showModal({
-      title: '加入黑名单',
-      content: `确定将车牌号 ${invite.plateNumber} 加入黑名单吗？`,
-      success: (res) => {
-        if (res.confirm) {
-          setInvites(prev => prev.map(i => 
-            i.id === invite.id ? { ...i, isBlacklist: true } : i
-          ));
-          Taro.showToast({ title: '已加入黑名单', icon: 'success' });
         }
       }
     });
@@ -116,82 +146,130 @@ const AuditListPage: React.FC = () => {
       </View>
 
       {filteredInvites.length > 0 ? (
-        filteredInvites.map((invite) => (
-          <View key={invite.id} className={styles.auditCard}>
-            <View className={styles.cardHeader}>
-              <View className={styles.visitorInfo}>
-                <Text className={styles.visitorName}>{invite.visitorName}</Text>
-                <Text className={styles.plateNumber}>{invite.plateNumber}</Text>
+        filteredInvites.map((invite) => {
+          const isBlacklist = checkBlacklist(invite.plateNumber);
+          const isExpired = isVisitExpired(invite.visitEndTime);
+          
+          return (
+            <View key={invite.id} className={classnames(styles.auditCard, isBlacklist && styles.hasBlacklistWarning)}>
+              <View className={styles.cardHeader}>
+                <View className={styles.visitorInfo}>
+                  <Text className={styles.visitorName}>{invite.visitorName}</Text>
+                  <Text className={styles.plateNumber}>{invite.plateNumber}</Text>
+                </View>
+                <View className={styles.headerRight}>
+                  <Text 
+                    className={classnames(
+                      styles.statusTag,
+                      isExpired && activeTab === 'pending' && styles.expired
+                    )}
+                    style={{ color: getStatusColor(invite.status), backgroundColor: `${getStatusColor(invite.status)}15` }}
+                  >
+                    {isExpired && activeTab === 'pending' ? '已过期' : getStatusText(invite.status)}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text 
-                  className={styles.statusTag}
-                  style={{ color: getStatusColor(invite.status), backgroundColor: `${getStatusColor(invite.status)}15` }}
-                >
-                  {getStatusText(invite.status)}
+
+              {isBlacklist && (
+                <View className={styles.blacklistWarning}>
+                  <View className={styles.warningHeader}>
+                    <Text className={styles.warningIcon}>🚫</Text>
+                    <Text className={styles.warningTitle}>黑名单车辆</Text>
+                  </View>
+                  <Text className={styles.warningText}>
+                    原因：{getBlacklistReason(invite.plateNumber)}
+                  </Text>
+                  {invite.status === 'pending' && (
+                    <View className={styles.blacklistActions}>
+                      <Button 
+                        className={classnames(styles.btnSmall, styles.btnBlacklist)}
+                        onClick={() => handleAddBlacklist(invite)}
+                      >
+                        确认拉黑
+                      </Button>
+                      <Button 
+                        className={classnames(styles.btnSmall, styles.btnSpecial)}
+                        onClick={() => handleApprove(invite)}
+                      >
+                        特殊放行
+                      </Button>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {isExpired && activeTab === 'pending' && !isBlacklist && (
+                <View className={classnames(styles.blacklistWarning, styles.expiredWarning)}>
+                  <Text className={styles.warningIcon}>⏰</Text>
+                  <Text className={styles.warningText}>到访时段已过期</Text>
+                </View>
+              )}
+
+              <View className={styles.infoGrid}>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>业主</Text>
+                  <Text className={styles.infoValue}>{invite.ownerName}</Text>
+                </View>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>楼栋</Text>
+                  <Text className={styles.infoValue}>{invite.building} {invite.room}</Text>
+                </View>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>电话</Text>
+                  <Text className={styles.infoValue}>{invite.visitorPhone}</Text>
+                </View>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>申请时间</Text>
+                  <Text className={styles.infoValue}>{formatTime(invite.createTime)}</Text>
+                </View>
+              </View>
+
+              <View className={styles.infoRow}>
+                <Text className={styles.infoLabel}>到访时段：</Text>
+                <Text className={classnames(styles.infoValue, isExpired && styles.expiredText)}>
+                  {formatTime(invite.visitStartTime)} - {formatTime(invite.visitEndTime)}
                 </Text>
-                {invite.status === 'pending' && (
+              </View>
+
+              {invite.parkingSpot && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>分配车位：</Text>
+                  <Text className={styles.infoValue} style={{ color: '#1677FF', fontWeight: '600' }}>
+                    {invite.parkingSpot}
+                  </Text>
+                </View>
+              )}
+
+              {invite.remark && (
+                <View className={styles.remarkBox}>
+                  <Text className={styles.remarkLabel}>备注：</Text>
+                  <Text className={styles.remarkText}>{invite.remark}</Text>
+                </View>
+              )}
+
+              {invite.approveTime && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>审核时间：</Text>
+                  <Text className={styles.infoValue}>{formatTime(invite.approveTime)}</Text>
+                </View>
+              )}
+
+              {invite.status === 'pending' && (
+                <View className={styles.actionButtons}>
                   <Button className={styles.btnRemark} onClick={() => handleRemark(invite)}>
                     备注
                   </Button>
-                )}
-              </View>
-            </View>
-
-            {checkBlacklist(invite.plateNumber) && (
-              <View className={styles.blacklistWarning}>
-                <Text className={styles.warningIcon}>⚠️</Text>
-                <Text className={styles.warningText}>
-                  该车辆在黑名单中：{getBlacklistReason(invite.plateNumber)}
-                </Text>
-                {invite.status === 'pending' && (
-                  <Button 
-                    className={styles.btnRemark} 
-                    onClick={() => handleAddBlacklist(invite)}
-                    style={{ background: 'rgba(245, 63, 63, 0.1)', color: '#F53F3F' }}
-                  >
-                    拉黑
+                  <Button className={styles.btnReject} onClick={() => handleReject(invite)}>
+                    拒绝
                   </Button>
-                )}
-              </View>
-            )}
-
-            <View className={styles.infoRow}>
-              <Text className={styles.infoLabel}>业主信息：</Text>
-              <Text className={styles.infoValue}>{invite.ownerName} · {invite.building}{invite.room}</Text>
+                  <Button className={styles.btnApprove} onClick={() => handleApprove(invite)}>
+                    通过
+                  </Button>
+                </View>
+              )}
             </View>
-
-            <View className={styles.infoRow}>
-              <Text className={styles.infoLabel}>联系电话：</Text>
-              <Text className={styles.infoValue}>{invite.visitorPhone}</Text>
-            </View>
-
-            <View className={styles.infoRow}>
-              <Text className={styles.infoLabel}>到访时段：</Text>
-              <Text className={styles.infoValue}>
-                {formatTime(invite.visitStartTime)} - {formatTime(invite.visitEndTime)}
-              </Text>
-            </View>
-
-            {invite.remark && (
-              <View className={styles.infoRow}>
-                <Text className={styles.infoLabel}>备注：</Text>
-                <Text className={styles.infoValue} style={{ color: '#FF7D00' }}>{invite.remark}</Text>
-              </View>
-            )}
-
-            {invite.status === 'pending' && (
-              <View className={styles.actionButtons}>
-                <Button className={styles.btnReject} onClick={() => handleReject(invite)}>
-                  拒绝
-                </Button>
-                <Button className={styles.btnApprove} onClick={() => handleApprove(invite)}>
-                  通过
-                </Button>
-              </View>
-            )}
-          </View>
-        ))
+          );
+        })
       ) : (
         <View className={styles.emptyState}>
           <View className={styles.emptyIcon}>📋</View>

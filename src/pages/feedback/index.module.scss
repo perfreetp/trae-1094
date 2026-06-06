@@ -243,3 +243,56 @@
   font-size: $font-size-md;
   color: $color-text-tertiary;
 }
+
+.tabBadge {
+  margin-left: $spacing-xs;
+  font-size: $font-size-xs;
+  background: $color-danger;
+  color: $color-text-white;
+  padding: 2rpx 12rpx;
+  border-radius: 20rpx;
+  min-width: 32rpx;
+  text-align: center;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.feedbackUser {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.feedbackContact {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-top: $spacing-xs;
+}
+
+.propertyActions {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1rpx solid $color-divider;
+}
+
+.replyBtn {
+  width: 100% !important;
+  height: 72rpx !important;
+  line-height: 72rpx !important;
+  font-size: $font-size-md !important;
+  background: $color-primary !important;
+  color: $color-text-white !important;
+  border-radius: $radius-md !important;
+  border: none !important;
+  
+  &.active {
+    background: $color-success !important;
+  }
+  
+  &::after {
+    border: none !important;
+  }
+}

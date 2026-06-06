@@ -8,7 +8,8 @@ export default defineAppConfig({
     'pages/entry/index',
     'pages/parking-fee/index',
     'pages/feedback/index',
-    'pages/invite-detail/index'
+    'pages/invite-detail/index',
+    'pages/ledger/index'
   ],
   window: {
     backgroundTextStyle: 'light',

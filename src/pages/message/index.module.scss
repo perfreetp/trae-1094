@@ -90,3 +90,14 @@
   font-weight: $font-weight-semibold;
   color: $color-text-primary;
 }
+
+.tabBadge {
+  margin-left: $spacing-xs;
+  font-size: $font-size-xs;
+  background: $color-danger;
+  color: $color-text-white;
+  padding: 2rpx 12rpx;
+  border-radius: 20rpx;
+  min-width: 32rpx;
+  text-align: center;
+}

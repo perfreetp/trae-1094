@@ -1,41 +1,73 @@
-import React, { useState } from 'react';
-import { View, Text, Button, ScrollView } from '@tarojs/components';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, ScrollView, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
 import { ParkingRecord } from '@/types';
-import { mockParkingRecords } from '@/data/records';
-import { formatTime, getStatusText, getStatusColor, calculateParkingFee } from '@/utils';
+import { useApp } from '@/store/appStore';
+import { formatTime, getStatusText, getStatusColor } from '@/utils';
 
 const ParkingFeePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('parking');
-  const [records, setRecords] = useState<ParkingRecord[]>(mockParkingRecords);
+  const [selectedRecord, setSelectedRecord] = useState<ParkingRecord | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const { parkingRecords, calculateFee, reduceFee, payFee, currentRole } = useApp();
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      forceUpdate(prev => prev + 1);
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const tabs = [
     { key: 'parking', label: '停车中' },
     { key: 'history', label: '历史记录' }
   ];
 
-  const parkingRecords = records.filter(r => r.status === 'parking');
-  const historyRecords = records.filter(r => r.status !== 'parking');
+  const parkingList = parkingRecords.filter(r => r.status === 'parking');
+  const historyList = parkingRecords.filter(r => r.status !== 'parking');
 
-  const currentRecords = activeTab === 'parking' ? parkingRecords : historyRecords;
+  const currentList = activeTab === 'parking' ? parkingList : historyList;
 
-  const totalFee = historyRecords.reduce((sum, r) => sum + r.fee, 0);
-  const totalParking = parkingRecords.length;
-  const totalCount = records.length;
+  const totalFee = historyList.reduce((sum, r) => sum + calculateFee(r.id), 0);
+  const totalParking = parkingList.length;
+  const totalCount = parkingRecords.length;
+
+  const getParkingDuration = (enterTime: string) => {
+    const enter = new Date(enterTime).getTime();
+    const now = Date.now();
+    const diff = now - enter;
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}小时${minutes}分钟`;
+  };
+
+  const isOvertime = (enterTime: string, expectedEnd?: string) => {
+    if (!expectedEnd) {
+      const hours = (Date.now() - new Date(enterTime).getTime()) / (1000 * 60 * 60);
+      return hours > 8;
+    }
+    return new Date() > new Date(expectedEnd);
+  };
 
   const handleReduceFee = (record: ParkingRecord) => {
+    const currentFee = calculateFee(record.id);
     Taro.showActionSheet({
-      itemList: ['减免1小时', '减免2小时', '全额减免', '自定义减免'],
+      itemList: ['减免1小时(5元)', '减免2小时(10元)', '全额减免', '自定义减免'],
       success: (res) => {
-        const reduceOptions = [5, 10, record.fee, 0];
+        const reduceOptions = [5, 10, currentFee, 0];
         if (res.tapIndex < 3) {
+          const amount = reduceOptions[res.tapIndex];
           Taro.showModal({
             title: '确认减免',
-            content: `确定减免 ${reduceOptions[res.tapIndex]} 元吗？`,
-            success: (res) => {
-              if (res.confirm) {
+            content: `确定减免 ¥${amount} 吗？`,
+            editable: true,
+            placeholderText: '请输入减免原因',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                reduceFee(record.id, amount, modalRes.content || '物业减免');
                 Taro.showToast({ title: '减免成功', icon: 'success' });
               }
             }
@@ -45,9 +77,24 @@ const ParkingFeePage: React.FC = () => {
             title: '自定义减免',
             editable: true,
             placeholderText: '请输入减免金额',
-            success: (res) => {
-              if (res.confirm && res.content) {
-                Taro.showToast({ title: '减免成功', icon: 'success' });
+            success: (amountRes) => {
+              if (amountRes.confirm && amountRes.content) {
+                const amount = parseFloat(amountRes.content);
+                if (!isNaN(amount) && amount > 0) {
+                  Taro.showModal({
+                    title: '减免原因',
+                    editable: true,
+                    placeholderText: '请输入减免原因',
+                    success: (reasonRes) => {
+                      if (reasonRes.confirm) {
+                        reduceFee(record.id, amount, reasonRes.content || '物业减免');
+                        Taro.showToast({ title: '减免成功', icon: 'success' });
+                      }
+                    }
+                  });
+                } else {
+                  Taro.showToast({ title: '请输入有效金额', icon: 'none' });
+                }
               }
             }
           });
@@ -57,25 +104,24 @@ const ParkingFeePage: React.FC = () => {
   };
 
   const handlePay = (record: ParkingRecord) => {
-    const fee = record.fee > 0 ? record.fee : calculateParkingFee(record.enterTime, record.exitTime);
-    if (fee === 0) {
-      Taro.showToast({ title: '停车免费', icon: 'success' });
+    const fee = calculateFee(record.id);
+    if (fee <= 0) {
+      Taro.showToast({ title: '无需缴费', icon: 'success' });
+      payFee(record.id);
       return;
     }
     
     Taro.showModal({
-      title: '确认支付',
-      content: `需支付停车费 ¥${fee}`,
+      title: '确认缴费',
+      content: `停车费用：¥${fee}\n\n确认支付？`,
       success: (res) => {
         if (res.confirm) {
           Taro.showLoading({ title: '支付中...' });
           setTimeout(() => {
             Taro.hideLoading();
-            Taro.showToast({ title: '支付成功', icon: 'success' });
-            setRecords(prev => prev.map(r => 
-              r.id === record.id ? { ...r, status: 'paid', fee } : r
-            ));
-          }, 1500);
+            payFee(record.id);
+            Taro.showToast({ title: '缴费成功', icon: 'success' });
+          }, 1000);
         }
       }
     });
@@ -84,7 +130,7 @@ const ParkingFeePage: React.FC = () => {
   const handleExport = () => {
     Taro.showModal({
       title: '导出记录',
-      content: '确定要导出通行记录Excel吗？',
+      content: `确定导出 ${currentList.length} 条停车记录吗？`,
       success: (res) => {
         if (res.confirm) {
           Taro.showLoading({ title: '导出中...' });
@@ -97,24 +143,27 @@ const ParkingFeePage: React.FC = () => {
     });
   };
 
+  const handleViewDetail = (record: ParkingRecord) => {
+    setSelectedRecord(record);
+    setShowDetail(true);
+  };
+
   return (
     <ScrollView scrollY className={styles.container}>
-      <View className={styles.summaryCard}>
-        <Text className={styles.summaryTitle}>累计停车费用</Text>
-        <Text className={styles.summaryAmount}>¥{totalFee}</Text>
-        <View className={styles.summaryStats}>
-          <View className={styles.statItem}>
-            <Text className={styles.statValue}>{totalParking}</Text>
-            <Text className={styles.statLabel}>停车中</Text>
-          </View>
-          <View className={styles.statItem}>
-            <Text className={styles.statValue}>{totalCount}</Text>
-            <Text className={styles.statLabel}>总记录</Text>
-          </View>
-          <View className={styles.statItem}>
-            <Text className={styles.statValue}>{historyRecords.filter(r => r.status === 'paid').length}</Text>
-            <Text className={styles.statLabel}>已缴费</Text>
-          </View>
+      <View className={styles.statsCard}>
+        <View className={styles.statItem}>
+          <Text className={styles.statValue}>{totalParking}</Text>
+          <Text className={styles.statLabel}>停车中</Text>
+        </View>
+        <View className={styles.statDivider} />
+        <View className={styles.statItem}>
+          <Text className={styles.statValue}>¥{totalFee}</Text>
+          <Text className={styles.statLabel}>累计收费</Text>
+        </View>
+        <View className={styles.statDivider} />
+        <View className={styles.statItem}>
+          <Text className={styles.statValue}>{totalCount}</Text>
+          <Text className={styles.statLabel}>总记录</Text>
         </View>
       </View>
 
@@ -126,91 +175,162 @@ const ParkingFeePage: React.FC = () => {
             onClick={() => setActiveTab(tab.key)}
           >
             {tab.label}
-            {tab.key === 'parking' && parkingRecords.length > 0 && (
-              <Text style={{ marginLeft: '8rpx', fontSize: '20rpx' }}>({parkingRecords.length})</Text>
+            {tab.key === 'parking' && totalParking > 0 && (
+              <Text className={styles.tabBadge}>{totalParking}</Text>
             )}
           </View>
         ))}
+        {currentRole === 'property' && (
+          <Button className={styles.exportBtn} onClick={handleExport}>
+            导出
+          </Button>
+        )}
       </View>
 
-      {currentRecords.length > 0 ? (
-        <View>
-          {currentRecords.map((record) => {
-            const currentFee = record.fee > 0 ? record.fee : calculateParkingFee(record.enterTime, record.exitTime);
-            return (
-              <View key={record.id} className={styles.parkingCard}>
-                <View className={styles.cardHeader}>
+      {currentList.length > 0 ? (
+        currentList.map((record) => {
+          const currentFee = calculateFee(record.id);
+          const duration = getParkingDuration(record.enterTime);
+          const overtime = activeTab === 'parking' && isOvertime(record.enterTime);
+          
+          return (
+            <View key={record.id} className={styles.recordCard}>
+              <View className={styles.cardHeader}>
+                <View className={styles.vehicleInfo}>
                   <Text className={styles.plateNumber}>{record.plateNumber}</Text>
-                  <Text 
-                    className={styles.statusTag}
-                    style={{ color: getStatusColor(record.status), backgroundColor: `${getStatusColor(record.status)}15` }}
-                  >
-                    {getStatusText(record.status)}
-                  </Text>
+                  <Text className={styles.visitorName}>{record.visitorName}</Text>
                 </View>
-                
-                <View className={styles.infoRow}>
-                  <Text className={styles.infoLabel}>访客：</Text>
-                  <Text className={styles.infoValue}>{record.visitorName} · {record.building}{record.room}</Text>
-                </View>
-                
-                <View className={styles.infoRow}>
-                  <Text className={styles.infoLabel}>车位：</Text>
-                  <Text className={styles.infoValue}>{record.parkingSpot}</Text>
-                </View>
-                
-                <View className={styles.infoRow}>
-                  <Text className={styles.infoLabel}>入场时间：</Text>
+                <Text 
+                  className={classnames(styles.statusTag, overtime && styles.overtime)}
+                  style={{ 
+                    color: overtime ? '#F53F3F' : getStatusColor(record.status), 
+                    backgroundColor: `${overtime ? '#F53F3F' : getStatusColor(record.status)}15` 
+                  }}
+                >
+                  {overtime ? '已超时' : getStatusText(record.status)}
+                </Text>
+              </View>
+
+              <View className={styles.infoGrid}>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>入场时间</Text>
                   <Text className={styles.infoValue}>{formatTime(record.enterTime)}</Text>
                 </View>
-                
-                {record.exitTime && (
-                  <View className={styles.infoRow}>
-                    <Text className={styles.infoLabel}>离场时间：</Text>
-                    <Text className={styles.infoValue}>{formatTime(record.exitTime)}</Text>
-                  </View>
-                )}
-                
-                {record.duration && (
-                  <View className={styles.infoRow}>
-                    <Text className={styles.infoLabel}>停车时长：</Text>
-                    <Text className={styles.infoValue}>{Math.floor(record.duration / 60)}小时{record.duration % 60}分钟</Text>
-                  </View>
-                )}
-                
-                <View className={styles.feeRow}>
-                  <Text className={styles.feeLabel}>停车费用：</Text>
-                  {currentFee === 0 ? (
-                    <Text className={styles.freeTag}>免费</Text>
-                  ) : (
-                    <Text className={styles.feeAmount}>¥{currentFee}</Text>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>停车时长</Text>
+                  <Text className={classnames(styles.infoValue, overtime && styles.overtimeText)}>{duration}</Text>
+                </View>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>车位</Text>
+                  <Text className={styles.infoValue}>{record.parkingSpot}</Text>
+                </View>
+                <View className={styles.infoItem}>
+                  <Text className={styles.infoLabel}>楼栋</Text>
+                  <Text className={styles.infoValue}>{record.building} {record.room}</Text>
+                </View>
+              </View>
+
+              <View className={styles.feeSection}>
+                <View className={styles.feeInfo}>
+                  <Text className={styles.feeLabel}>当前费用</Text>
+                  <Text className={styles.feeValue}>¥{currentFee}</Text>
+                  {record.remark && (
+                    <Text className={styles.feeRemark}>（已减免：{record.remark}）</Text>
                   )}
                 </View>
-                
+              </View>
+
+              {record.exitTime && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>离场时间：</Text>
+                  <Text className={styles.infoValue}>{formatTime(record.exitTime)}</Text>
+                </View>
+              )}
+
+              <View className={styles.actionButtons}>
+                <Button className={styles.detailBtn} onClick={() => handleViewDetail(record)}>
+                  详情
+                </Button>
+                {record.status === 'parking' && currentRole === 'property' && (
+                  <Button className={styles.reduceBtn} onClick={() => handleReduceFee(record)}>
+                    费用减免
+                  </Button>
+                )}
                 {record.status === 'parking' && (
-                  <View className={styles.actionRow}>
-                    <Button className={styles.btnReduce} onClick={() => handleReduceFee(record)}>
-                      费用减免
-                    </Button>
-                    <Button className={styles.btnPay} onClick={() => handlePay(record)}>
-                      缴费离场
-                    </Button>
-                  </View>
+                  <Button className={styles.payBtn} onClick={() => handlePay(record)}>
+                    {currentFee <= 0 ? '免费离场' : `缴费 ¥${currentFee}`}
+                  </Button>
                 )}
               </View>
-            );
-          })}
-          
-          {activeTab === 'history' && (
-            <Button className={styles.exportBtn} onClick={handleExport}>
-              📤 导出通行记录
-            </Button>
-          )}
-        </View>
+            </View>
+          );
+        })
       ) : (
         <View className={styles.emptyState}>
           <View className={styles.emptyIcon}>🚗</View>
           <Text className={styles.emptyText}>暂无{activeTab === 'parking' ? '停车中' : '历史'}记录</Text>
+        </View>
+      )}
+
+      {showDetail && selectedRecord && (
+        <View className={styles.modalMask} onClick={() => setShowDetail(false)}>
+          <View className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <View className={styles.modalHeader}>
+              <Text className={styles.modalTitle}>停车详情</Text>
+              <Text className={styles.modalClose} onClick={() => setShowDetail(false)}>×</Text>
+            </View>
+            <ScrollView scrollY className={styles.modalBody}>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>车牌号</Text>
+                <Text className={styles.detailValue}>{selectedRecord.plateNumber}</Text>
+              </View>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>访客</Text>
+                <Text className={styles.detailValue}>{selectedRecord.visitorName}</Text>
+              </View>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>入场时间</Text>
+                <Text className={styles.detailValue}>{formatTime(selectedRecord.enterTime)}</Text>
+              </View>
+              {selectedRecord.exitTime && (
+                <View className={styles.detailRow}>
+                  <Text className={styles.detailLabel}>离场时间</Text>
+                  <Text className={styles.detailValue}>{formatTime(selectedRecord.exitTime)}</Text>
+                </View>
+              )}
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>停车时长</Text>
+                <Text className={styles.detailValue}>{getParkingDuration(selectedRecord.enterTime)}</Text>
+              </View>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>车位</Text>
+                <Text className={styles.detailValue}>{selectedRecord.parkingSpot}</Text>
+              </View>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>楼栋房间</Text>
+                <Text className={styles.detailValue}>{selectedRecord.building} {selectedRecord.room}</Text>
+              </View>
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>费用</Text>
+                <Text className={classnames(styles.detailValue, styles.feeHighlight)}>¥{calculateFee(selectedRecord.id)}</Text>
+              </View>
+              {selectedRecord.remark && (
+                <View className={styles.detailRow}>
+                  <Text className={styles.detailLabel}>备注</Text>
+                  <Text className={styles.detailValue}>{selectedRecord.remark}</Text>
+                </View>
+              )}
+              <View className={styles.detailRow}>
+                <Text className={styles.detailLabel}>状态</Text>
+                <Text 
+                  className={styles.detailValue}
+                  style={{ color: getStatusColor(selectedRecord.status) }}
+                >
+                  {getStatusText(selectedRecord.status)}
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
         </View>
       )}
     </ScrollView>

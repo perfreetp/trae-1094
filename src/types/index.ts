@@ -28,6 +28,7 @@ export interface InviteInfo {
   parkingFee?: number;
   isBlacklist?: boolean;
   remark?: string;
+  autoApprove?: boolean;
 }
 
 export interface VehicleInfo {
@@ -78,4 +79,5 @@ export interface FeedbackInfo {
   createTime: string;
   reply?: string;
   replyTime?: string;
+  contact?: string;
 }

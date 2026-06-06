@@ -4,12 +4,12 @@ import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
 import { FeedbackInfo } from '@/types';
-import { mockFeedbacks } from '@/data/records';
+import { useApp } from '@/store/appStore';
 import { formatTime, getStatusText, getStatusColor } from '@/utils';
 
 const FeedbackPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('submit');
-  const [feedbacks, setFeedbacks] = useState<FeedbackInfo[]>(mockFeedbacks);
+  const { feedbacks, currentRole, submitFeedback, replyFeedback } = useApp();
   
   const [feedbackType, setFeedbackType] = useState('');
   const [content, setContent] = useState('');
@@ -34,23 +34,44 @@ const FeedbackPage: React.FC = () => {
     Taro.showLoading({ title: '提交中...' });
     setTimeout(() => {
       Taro.hideLoading();
-      const newFeedback: FeedbackInfo = {
-        id: String(Date.now()),
-        userId: 'o1',
-        userName: '张先生',
+      submitFeedback({
         type: feedbackType,
         content: content,
-        status: 'pending',
-        createTime: new Date().toISOString()
-      };
-      setFeedbacks(prev => [newFeedback, ...prev]);
+        contact: contact
+      });
       Taro.showToast({ title: '提交成功', icon: 'success' });
       setFeedbackType('');
       setContent('');
       setContact('');
       setActiveTab('list');
-    }, 1000);
+    }, 800);
   };
+
+  const handleReply = (feedback: FeedbackInfo) => {
+    Taro.showActionSheet({
+      itemList: ['标记处理中', '标记已解决并回复'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          replyFeedback(feedback.id, '物业正在处理您的反馈，请耐心等待', 'processing');
+          Taro.showToast({ title: '已标记处理中', icon: 'success' });
+        } else if (res.tapIndex === 1) {
+          Taro.showModal({
+            title: '回复反馈',
+            editable: true,
+            placeholderText: '请输入回复内容',
+            success: (modalRes) => {
+              if (modalRes.confirm && modalRes.content) {
+                replyFeedback(feedback.id, modalRes.content, 'resolved');
+                Taro.showToast({ title: '回复成功', icon: 'success' });
+              }
+            }
+          });
+        }
+      }
+    });
+  };
+
+  const pendingCount = feedbacks.filter(f => f.status === 'pending').length;
 
   return (
     <ScrollView scrollY className={styles.container}>
@@ -66,10 +87,8 @@ const FeedbackPage: React.FC = () => {
           onClick={() => setActiveTab('list')}
         >
           反馈记录
-          {feedbacks.filter(f => f.status === 'pending').length > 0 && (
-            <Text style={{ marginLeft: '8rpx', fontSize: '20rpx' }}>
-              ({feedbacks.filter(f => f.status === 'pending').length})
-            </Text>
+          {pendingCount > 0 && (
+            <Text className={styles.tabBadge}>{pendingCount}</Text>
           )}
         </View>
       </View>
@@ -132,7 +151,12 @@ const FeedbackPage: React.FC = () => {
           feedbacks.map((feedback) => (
             <View key={feedback.id} className={styles.feedbackCard}>
               <View className={styles.cardHeader}>
-                <Text className={styles.feedbackType}>{feedback.type}</Text>
+                <View className={styles.headerLeft}>
+                  <Text className={styles.feedbackType}>{feedback.type}</Text>
+                  {currentRole === 'property' && (
+                    <Text className={styles.feedbackUser}>{feedback.userName}</Text>
+                  )}
+                </View>
                 <Text 
                   className={styles.statusTag}
                   style={{ color: getStatusColor(feedback.status), backgroundColor: `${getStatusColor(feedback.status)}15` }}
@@ -142,6 +166,9 @@ const FeedbackPage: React.FC = () => {
               </View>
               
               <Text className={styles.feedbackContent}>{feedback.content}</Text>
+              {feedback.contact && (
+                <Text className={styles.feedbackContact}>联系方式：{feedback.contact}</Text>
+              )}
               <Text className={styles.feedbackTime}>{formatTime(feedback.createTime)}</Text>
               
               {feedback.reply && (
@@ -151,6 +178,17 @@ const FeedbackPage: React.FC = () => {
                   {feedback.replyTime && (
                     <Text className={styles.replyTime}>{formatTime(feedback.replyTime)}</Text>
                   )}
+                </View>
+              )}
+              
+              {currentRole === 'property' && feedback.status !== 'resolved' && (
+                <View className={styles.propertyActions}>
+                  <Button 
+                    className={classnames(styles.replyBtn, feedback.status === 'processing' && styles.active)}
+                    onClick={() => handleReply(feedback)}
+                  >
+                    {feedback.status === 'pending' ? '处理反馈' : '回复并完成'}
+                  </Button>
                 </View>
               )}
             </View>
