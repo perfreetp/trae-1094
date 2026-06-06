@@ -180,3 +180,66 @@
     transform: scale(0.98);
   }
 }
+
+.overviewCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  box-shadow: $shadow-card;
+  margin: 0 $page-padding $spacing-lg;
+}
+
+.overviewTitle {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $spacing-md;
+}
+
+.overviewItem {
+  border-radius: $radius-md;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-base;
+  
+  &:active {
+    transform: scale(0.96);
+  }
+}
+
+.overviewValue {
+  font-size: 48rpx;
+  font-weight: $font-weight-bold;
+  margin-bottom: $spacing-xs;
+}
+
+.overviewLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.actionBadge {
+  position: absolute;
+  top: 8rpx;
+  right: 20rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  background: $color-danger;
+  color: $color-text-white;
+  font-size: 20rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+}

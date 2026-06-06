@@ -440,3 +440,97 @@
   padding: 4rpx 16rpx;
   border-radius: 20rpx;
 }
+
+.viewTabs {
+  display: flex;
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  padding: $spacing-xs;
+  margin-bottom: $spacing-md;
+  box-shadow: $shadow-card;
+}
+
+.viewTabItem {
+  flex: 1;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+  position: relative;
+  transition: all $transition-base;
+  
+  &.viewTabActive {
+    background: $color-primary;
+    color: $color-text-white;
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+}
+
+.viewTabBadge {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2rpx 12rpx;
+  border-radius: 20rpx;
+  
+  .viewTabActive & {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.summaryCard {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  border-radius: $radius-md;
+  padding: $spacing-md $spacing-lg;
+  margin-bottom: $spacing-md;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summaryLabel {
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.summaryValue {
+  font-size: $font-size-sm;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.summaryAmount {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: $color-text-white;
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  padding: $spacing-sm 0;
+  border-top: 1rpx dashed $color-divider;
+}
+
+.infoLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.infoValue {
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  font-weight: $font-weight-medium;
+}
+
+.feeReduce {
+  font-size: 24rpx;
+  color: $color-success;
+  margin-left: $spacing-xs;
+}

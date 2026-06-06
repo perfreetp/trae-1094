@@ -41,6 +41,12 @@ interface AppContextType extends AppState {
     endTime?: string;
     status?: string;
   }) => ParkingRecord[];
+  getTodayStats: () => {
+    pendingAudit: number;
+    parkingNow: number;
+    pendingExit: number;
+    todayFee: number;
+  };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -241,6 +247,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const record = parkingRecords.find(r => r.id === recordId);
     if (!record) return 0;
     
+    if (record.status === 'paid' || record.status === 'exited') {
+      return record.paidFee ?? record.fee;
+    }
+    
     const originalFee = getOriginalFee(recordId);
     const reducedAmount = record.reducedAmount || 0;
     return Math.max(0, originalFee - reducedAmount);
@@ -272,23 +282,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const payFee: AppContextType['payFee'] = (recordId) => {
-    const fee = calculateFee(recordId);
     const record = parkingRecords.find(r => r.id === recordId);
+    if (!record) return;
+    
+    const originalFee = getOriginalFee(recordId);
+    const reducedAmount = record.reducedAmount || 0;
+    const paidFee = Math.max(0, originalFee - reducedAmount);
+    const payTime = new Date().toISOString();
     
     setParkingRecords(prev => prev.map(r => 
       r.id === recordId 
-        ? { ...r, status: 'paid', fee }
+        ? { 
+            ...r, 
+            status: 'paid', 
+            originalFee,
+            paidFee,
+            fee: paidFee,
+            payTime
+          }
         : r
     ));
 
-    if (record) {
-      addMessage({
-        type: 'fee',
-        title: '缴费成功通知',
-        content: `车辆 ${record.plateNumber} 停车费 ¥${fee} 已支付，可凭缴费记录离场`,
-        relatedId: recordId
-      });
-    }
+    addMessage({
+      type: 'fee',
+      title: '缴费成功通知',
+      content: `车辆 ${record.plateNumber} 停车费 ¥${paidFee} 已支付，可凭缴费记录离场`,
+      relatedId: recordId
+    });
   };
 
   const confirmExit: AppContextType['confirmExit'] = (recordId) => {
@@ -296,15 +316,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!record) return;
     
     const exitTime = new Date().toISOString();
+    const enter = new Date(record.enterTime).getTime();
+    const exit = new Date(exitTime).getTime();
+    const duration = Math.floor((exit - enter) / (1000 * 60));
+    
     setParkingRecords(prev => prev.map(r => 
       r.id === recordId 
-        ? { ...r, status: 'exited', exitTime }
+        ? { 
+            ...r, 
+            status: 'exited', 
+            exitTime, 
+            duration,
+            paidFee: r.paidFee ?? r.fee,
+            fee: r.paidFee ?? r.fee
+          }
         : r
     ));
 
     setInvites(prev => prev.map(i => 
       i.plateNumber === record.plateNumber && (i.status === 'entered' || i.status === 'approved')
-        ? { ...i, status: 'exited', exitTime, parkingFee: record.fee }
+        ? { ...i, status: 'exited', exitTime, parkingFee: record.paidFee ?? record.fee }
         : i
     ));
 
@@ -390,6 +421,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   };
 
+  const getTodayStats: AppContextType['getTodayStats'] = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const pendingAudit = invites.filter(i => i.status === 'pending').length;
+    const parkingNow = parkingRecords.filter(r => r.status === 'parking').length;
+    const pendingExit = parkingRecords.filter(r => r.status === 'paid').length;
+    
+    const todayFee = parkingRecords
+      .filter(r => {
+        if (r.status !== 'paid' && r.status !== 'exited') return false;
+        const payTime = r.payTime || r.exitTime;
+        if (!payTime) return false;
+        const payDate = new Date(payTime);
+        return payDate >= today && payDate < tomorrow;
+      })
+      .reduce((sum, r) => sum + (r.paidFee ?? r.fee), 0);
+    
+    return { pendingAudit, parkingNow, pendingExit, todayFee };
+  };
+
   const value: AppContextType = {
     invites,
     parkingRecords,
@@ -415,7 +469,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     replyFeedback,
     getUnreadMessageCount,
     getMyInvites,
-    getRecordsByFilter
+    getRecordsByFilter,
+    getTodayStats
   };
 
   return (

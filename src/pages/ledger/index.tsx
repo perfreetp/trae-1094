@@ -10,6 +10,7 @@ import { formatTime, formatDate, getStatusText, getStatusColor } from '@/utils';
 const LedgerPage: React.FC = () => {
   const { getRecordsByFilter, parkingRecords, invites, calculateFee, getOriginalFee } = useApp();
   
+  const [activeView, setActiveView] = useState('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ParkingRecord | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -23,22 +24,41 @@ const LedgerPage: React.FC = () => {
     status: ''
   });
 
-  const buildingOptions = ['全部', '1栋', '2栋', '3栋', '5栋', '8栋', '10栋'];
-  const statusOptions = [
-    { key: '', label: '全部状态' },
-    { key: 'parking', label: '停车中' },
-    { key: 'paid', label: '已缴费/可离场' },
+  const viewTabs = [
+    { key: 'all', label: '全部' },
+    { key: 'parking', label: '在场车辆' },
+    { key: 'paid', label: '待离场' },
     { key: 'exited', label: '已离场' }
   ];
 
+  const buildingOptions = ['全部', '1栋', '2栋', '3栋', '5栋', '8栋', '10栋'];
+
+  const getViewStatus = (view: string) => {
+    switch (view) {
+      case 'parking': return 'parking';
+      case 'paid': return 'paid';
+      case 'exited': return 'exited';
+      default: return '';
+    }
+  };
+
   const filteredRecords = getRecordsByFilter({
     ...filters,
-    building: filters.building === '全部' ? '' : filters.building
+    building: filters.building === '全部' ? '' : filters.building,
+    status: getViewStatus(activeView) || filters.status
   });
 
+  const getTotalFeeByDateRange = () => {
+    return filteredRecords
+      .filter(r => r.status === 'paid' || r.status === 'exited')
+      .reduce((sum, r) => sum + calculateFee(r.id), 0);
+  };
+
   const totalRecords = parkingRecords.length;
-  const totalFee = parkingRecords.reduce((sum, r) => sum + calculateFee(r.id), 0);
-  const parkingCount = parkingRecords.filter(r => r.status === 'parking' || r.status === 'paid').length;
+  const totalFee = getTotalFeeByDateRange();
+  const parkingCount = parkingRecords.filter(r => r.status === 'parking').length;
+  const paidCount = parkingRecords.filter(r => r.status === 'paid').length;
+  const exitedCount = parkingRecords.filter(r => r.status === 'exited').length;
 
   const getInviteRemark = (plateNumber: string) => {
     const invite = invites.find(i => i.plateNumber === plateNumber);
@@ -108,8 +128,7 @@ const LedgerPage: React.FC = () => {
   };
 
   const hasActiveFilters = filters.plateNumber || filters.visitorName || 
-                         filters.building || filters.status || 
-                         filters.startTime || filters.endTime;
+                         filters.building || filters.startTime || filters.endTime;
 
   return (
     <ScrollView scrollY className={styles.container}>
@@ -120,14 +139,37 @@ const LedgerPage: React.FC = () => {
         </View>
         <View className={styles.statDivider} />
         <View className={styles.statItem}>
-          <Text className={styles.statValue}>{parkingCount}</Text>
-          <Text className={styles.statLabel}>停车中</Text>
+          <Text className={styles.statValue}>{parkingCount + paidCount}</Text>
+          <Text className={styles.statLabel}>在场</Text>
         </View>
         <View className={styles.statDivider} />
         <View className={styles.statItem}>
           <Text className={styles.statValue}>¥{totalFee}</Text>
-          <Text className={styles.statLabel}>累计收费</Text>
+          <Text className={styles.statLabel}>
+            {filters.startTime || filters.endTime ? '区间收费' : '累计收费'}
+          </Text>
         </View>
+      </View>
+
+      <View className={styles.viewTabs}>
+        {viewTabs.map((tab) => (
+          <View
+            key={tab.key}
+            className={classnames(styles.viewTabItem, activeView === tab.key && styles.viewTabActive)}
+            onClick={() => setActiveView(tab.key)}
+          >
+            {tab.label}
+            {tab.key === 'parking' && parkingCount > 0 && (
+              <Text className={styles.viewTabBadge}>{parkingCount}</Text>
+            )}
+            {tab.key === 'paid' && paidCount > 0 && (
+              <Text className={styles.viewTabBadge}>{paidCount}</Text>
+            )}
+            {tab.key === 'exited' && exitedCount > 0 && (
+              <Text className={styles.viewTabBadge}>{exitedCount}</Text>
+            )}
+          </View>
+        ))}
       </View>
 
       <View className={styles.filterBar}>
@@ -181,22 +223,6 @@ const LedgerPage: React.FC = () => {
           </View>
           
           <View className={styles.filterRow}>
-            <Text className={styles.filterLabel}>状态</Text>
-            <Picker
-              mode='selector'
-              range={statusOptions.map(s => s.label)}
-              onChange={(e) => handleFilterChange('status', statusOptions[e.detail.value].key)}
-            >
-              <View className={styles.filterPicker}>
-                <Text className={classnames(!filters.status && styles.placeholder)}>
-                  {statusOptions.find(s => s.key === filters.status)?.label || '全部状态'}
-                </Text>
-                <Text>›</Text>
-              </View>
-            </Picker>
-          </View>
-          
-          <View className={styles.filterRow}>
             <Text className={styles.filterLabel}>开始时间</Text>
             <Picker
               mode='date'
@@ -232,6 +258,17 @@ const LedgerPage: React.FC = () => {
             <Button className={styles.resetBtn} onClick={handleReset}>重置</Button>
             <Button className={styles.applyBtn} onClick={handleApplyFilter}>确定</Button>
           </View>
+        </View>
+      )}
+
+      {(filters.startTime || filters.endTime) && (
+        <View className={styles.summaryCard}>
+          <Text className={styles.summaryLabel}>
+            {filters.startTime || '开始'} 至 {filters.endTime || '今天'}
+          </Text>
+          <Text className={styles.summaryValue}>
+            收费合计：<Text className={styles.summaryAmount}>¥{totalFee}</Text>
+          </Text>
         </View>
       )}
 
@@ -285,22 +322,34 @@ const LedgerPage: React.FC = () => {
                 </View>
               </View>
 
+              {(record.status === 'paid' || record.status === 'exited') && record.payTime && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>缴费时间：</Text>
+                  <Text className={styles.infoValue}>{formatTime(record.payTime)}</Text>
+                </View>
+              )}
+
+              {record.exitTime && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>离场时间：</Text>
+                  <Text className={styles.infoValue}>{formatTime(record.exitTime)}</Text>
+                </View>
+              )}
+
               <View className={styles.cardFooter}>
                 <View className={styles.feeInfo}>
-                  <Text className={styles.feeLabel}>费用：</Text>
+                  <Text className={styles.feeLabel}>实付：</Text>
                   <Text className={styles.feeValue}>¥{fee}</Text>
                   {hasReduction && (
                     <Text className={styles.feeOriginal}>原价¥{originalFee}</Text>
+                  )}
+                  {hasReduction && (
+                    <Text className={styles.feeReduce}>-¥{record.reducedAmount}</Text>
                   )}
                 </View>
                 {(record.remark || remark) && (
                   <View className={styles.remarkInfo}>
                     <Text className={styles.remarkText}>📝 {record.remark || remark}</Text>
-                  </View>
-                )}
-                {approveInfo?.approveTime && (
-                  <View className={styles.approveInfo}>
-                    <Text className={styles.approveText}>✅ 已审核</Text>
                   </View>
                 )}
               </View>
@@ -348,6 +397,12 @@ const LedgerPage: React.FC = () => {
                   <Text className={styles.detailLabel}>入场时间</Text>
                   <Text className={styles.detailValue}>{formatTime(selectedRecord.enterTime)}</Text>
                 </View>
+                {(selectedRecord.status === 'paid' || selectedRecord.status === 'exited') && selectedRecord.payTime && (
+                  <View className={styles.detailRow}>
+                    <Text className={styles.detailLabel}>缴费时间</Text>
+                    <Text className={styles.detailValue}>{formatTime(selectedRecord.payTime)}</Text>
+                  </View>
+                )}
                 {selectedRecord.exitTime && (
                   <View className={styles.detailRow}>
                     <Text className={styles.detailLabel}>离场时间</Text>
@@ -363,7 +418,7 @@ const LedgerPage: React.FC = () => {
               <View className={styles.detailSection}>
                 <Text className={styles.detailSectionTitle}>费用信息</Text>
                 <View className={styles.detailRow}>
-                  <Text className={styles.detailLabel}>当前费用</Text>
+                  <Text className={styles.detailLabel}>实付金额</Text>
                   <Text className={classnames(styles.detailValue, styles.feeHighlight)}>
                     ¥{calculateFee(selectedRecord.id)}
                   </Text>

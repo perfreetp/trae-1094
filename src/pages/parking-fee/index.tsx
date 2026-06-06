@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ScrollView } from '@tarojs/components';
+import { View, Text, Button, ScrollView, Input } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
@@ -11,6 +11,12 @@ const ParkingFeePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('parking');
   const [selectedRecord, setSelectedRecord] = useState<ParkingRecord | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filters, setFilters] = useState({
+    plateNumber: '',
+    visitorName: '',
+    building: ''
+  });
   const { parkingRecords, calculateFee, getOriginalFee, reduceFee, payFee, confirmExit, currentRole } = useApp();
   const [, forceUpdate] = useState(0);
 
@@ -31,8 +37,17 @@ const ParkingFeePage: React.FC = () => {
   const paidList = parkingRecords.filter(r => r.status === 'paid');
   const historyList = parkingRecords.filter(r => r.status === 'exited');
   
-  const currentList = activeTab === 'parking' ? parkingList : 
-                     activeTab === 'paid' ? paidList : historyList;
+  const filterRecords = (records: ParkingRecord[]) => {
+    return records.filter(r => {
+      if (filters.plateNumber && !r.plateNumber.includes(filters.plateNumber)) return false;
+      if (filters.visitorName && !r.visitorName.includes(filters.visitorName)) return false;
+      if (filters.building && !r.building.includes(filters.building)) return false;
+      return true;
+    });
+  };
+
+  const currentList = activeTab === 'parking' ? filterRecords(parkingList) : 
+                     activeTab === 'paid' ? filterRecords(paidList) : filterRecords(historyList);
 
   const totalFee = historyList.reduce((sum, r) => sum + calculateFee(r.id), 0);
   const totalParking = parkingList.length + paidList.length;
@@ -173,6 +188,16 @@ const ParkingFeePage: React.FC = () => {
     return textMap[activeTab] || '';
   };
 
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetFilter = () => {
+    setFilters({ plateNumber: '', visitorName: '', building: '' });
+  };
+
+  const hasActiveFilters = filters.plateNumber || filters.visitorName || filters.building;
+
   return (
     <ScrollView scrollY className={styles.container}>
       <View className={styles.statsCard}>
@@ -192,6 +217,53 @@ const ParkingFeePage: React.FC = () => {
         </View>
       </View>
 
+      <View className={styles.filterBar}>
+        <Button className={styles.filterBtn} onClick={() => setShowFilter(!showFilter)}>
+          🔍 筛选
+          {hasActiveFilters && <Text className={styles.filterDot}></Text>}
+        </Button>
+        {currentRole === 'property' && (
+          <Button className={styles.exportBtn} onClick={handleExport}>
+            导出
+          </Button>
+        )}
+      </View>
+
+      {showFilter && (
+        <View className={styles.filterPanel}>
+          <View className={styles.filterRow}>
+            <Text className={styles.filterLabel}>车牌号</Text>
+            <Input
+              className={styles.filterInput}
+              placeholder='请输入车牌号'
+              value={filters.plateNumber}
+              onInput={(e) => handleFilterChange('plateNumber', e.detail.value)}
+            />
+          </View>
+          <View className={styles.filterRow}>
+            <Text className={styles.filterLabel}>访客姓名</Text>
+            <Input
+              className={styles.filterInput}
+              placeholder='请输入访客姓名'
+              value={filters.visitorName}
+              onInput={(e) => handleFilterChange('visitorName', e.detail.value)}
+            />
+          </View>
+          <View className={styles.filterRow}>
+            <Text className={styles.filterLabel}>楼栋</Text>
+            <Input
+              className={styles.filterInput}
+              placeholder='请输入楼栋号'
+              value={filters.building}
+              onInput={(e) => handleFilterChange('building', e.detail.value)}
+            />
+          </View>
+          <View className={styles.filterActions}>
+            <Button className={styles.resetBtn} onClick={handleResetFilter}>重置</Button>
+          </View>
+        </View>
+      )}
+
       <View className={styles.tabs}>
         {tabs.map((tab) => (
           <View
@@ -208,12 +280,13 @@ const ParkingFeePage: React.FC = () => {
             )}
           </View>
         ))}
-        {currentRole === 'property' && (
-          <Button className={styles.exportBtn} onClick={handleExport}>
-            导出
-          </Button>
-        )}
       </View>
+
+      {hasActiveFilters && (
+        <View className={styles.filterActiveTip}>
+          <Text>已筛选到 {currentList.length} 条记录</Text>
+        </View>
+      )}
 
       {currentList.length > 0 ? (
         currentList.map((record) => {
@@ -258,18 +331,12 @@ const ParkingFeePage: React.FC = () => {
                 </View>
               </View>
 
-              <View className={styles.feeSection}>
-                <View className={styles.feeInfo}>
-                  <Text className={styles.feeLabel}>当前费用</Text>
-                  <Text className={styles.feeValue}>¥{currentFee}</Text>
-                  {record.reducedAmount && record.reducedAmount > 0 && (
-                    <Text className={styles.feeOriginal}>原价¥{getOriginalFee(record.id)}</Text>
-                  )}
-                  {record.remark && (
-                    <Text className={styles.feeRemark}>（{record.remark}）</Text>
-                  )}
+              {(record.status === 'paid' || record.status === 'exited') && record.payTime && (
+                <View className={styles.infoRow}>
+                  <Text className={styles.infoLabel}>缴费时间：</Text>
+                  <Text className={styles.infoValue}>{formatTime(record.payTime)}</Text>
                 </View>
-              </View>
+              )}
 
               {record.exitTime && (
                 <View className={styles.infoRow}>
@@ -277,6 +344,22 @@ const ParkingFeePage: React.FC = () => {
                   <Text className={styles.infoValue}>{formatTime(record.exitTime)}</Text>
                 </View>
               )}
+
+              <View className={styles.feeSection}>
+                <View className={styles.feeInfo}>
+                  <Text className={styles.feeLabel}>实付金额</Text>
+                  <Text className={styles.feeValue}>¥{currentFee}</Text>
+                  {record.reducedAmount && record.reducedAmount > 0 && (
+                    <>
+                      <Text className={styles.feeOriginal}>原价¥{getOriginalFee(record.id)}</Text>
+                      <Text className={styles.feeReduce}>-¥{record.reducedAmount}</Text>
+                    </>
+                  )}
+                  {record.remark && (
+                    <Text className={styles.feeRemark}>（{record.remark}）</Text>
+                  )}
+                </View>
+              </View>
 
               <View className={styles.actionButtons}>
                 <Button className={styles.detailBtn} onClick={() => handleViewDetail(record)}>
@@ -304,7 +387,9 @@ const ParkingFeePage: React.FC = () => {
       ) : (
         <View className={styles.emptyState}>
           <View className={styles.emptyIcon}>🚗</View>
-          <Text className={styles.emptyText}>暂无{getEmptyText()}记录</Text>
+          <Text className={styles.emptyText}>
+            {hasActiveFilters ? '没有符合条件的' : '暂无'}{getEmptyText()}记录
+          </Text>
         </View>
       )}
 
@@ -328,6 +413,12 @@ const ParkingFeePage: React.FC = () => {
                 <Text className={styles.detailLabel}>入场时间</Text>
                 <Text className={styles.detailValue}>{formatTime(selectedRecord.enterTime)}</Text>
               </View>
+              {(selectedRecord.status === 'paid' || selectedRecord.status === 'exited') && selectedRecord.payTime && (
+                <View className={styles.detailRow}>
+                  <Text className={styles.detailLabel}>缴费时间</Text>
+                  <Text className={styles.detailValue}>{formatTime(selectedRecord.payTime)}</Text>
+                </View>
+              )}
               {selectedRecord.exitTime && (
                 <View className={styles.detailRow}>
                   <Text className={styles.detailLabel}>离场时间</Text>
@@ -347,7 +438,7 @@ const ParkingFeePage: React.FC = () => {
                 <Text className={styles.detailValue}>{selectedRecord.building} {selectedRecord.room}</Text>
               </View>
               <View className={styles.detailRow}>
-                <Text className={styles.detailLabel}>当前费用</Text>
+                <Text className={styles.detailLabel}>实付金额</Text>
                 <Text className={classnames(styles.detailValue, styles.feeHighlight)}>¥{calculateFee(selectedRecord.id)}</Text>
               </View>
               {selectedRecord.reducedAmount && selectedRecord.reducedAmount > 0 && (

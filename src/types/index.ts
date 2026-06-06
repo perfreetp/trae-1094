@@ -46,7 +46,7 @@ export interface VehicleInfo {
 
 export interface MessageInfo {
   id: string;
-  type: 'system' | 'entry' | 'timeout' | 'approve' | 'fee';
+  type: 'system' | 'entry' | 'timeout' | 'approve' | 'fee' | 'feedback';
   title: string;
   content: string;
   isRead: boolean;
@@ -62,9 +62,12 @@ export interface ParkingRecord {
   exitTime?: string;
   parkingSpot: string;
   duration?: number;
+  originalFee?: number;
+  paidFee?: number;
   fee: number;
   reducedAmount?: number;
   remark?: string;
+  payTime?: string;
   status: 'parking' | 'paid' | 'exited';
   building: string;
   room: string;
