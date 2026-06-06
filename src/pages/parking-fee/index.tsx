@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, ScrollView, Input } from '@tarojs/components';
+import { View, Text, Button, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import styles from './index.module.scss';
@@ -31,6 +31,9 @@ const ParkingFeePage: React.FC = () => {
   const paidList = parkingRecords.filter(r => r.status === 'paid');
   const historyList = parkingRecords.filter(r => r.status === 'exited');
   
+  const currentList = activeTab === 'parking' ? parkingList : 
+                     activeTab === 'paid' ? paidList : historyList;
+
   const totalFee = historyList.reduce((sum, r) => sum + calculateFee(r.id), 0);
   const totalParking = parkingList.length + paidList.length;
   const totalCount = parkingRecords.length;
@@ -48,10 +51,10 @@ const ParkingFeePage: React.FC = () => {
     });
   };
 
-  const getParkingDuration = (enterTime: string) => {
+  const getParkingDuration = (enterTime: string, exitTime?: string) => {
     const enter = new Date(enterTime).getTime();
-    const now = Date.now();
-    const diff = now - enter;
+    const exit = exitTime ? new Date(exitTime).getTime() : Date.now();
+    const diff = exit - enter;
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}小时${minutes}分钟`;
@@ -161,6 +164,15 @@ const ParkingFeePage: React.FC = () => {
     setShowDetail(true);
   };
 
+  const getEmptyText = () => {
+    const textMap: Record<string, string> = {
+      parking: '停车中',
+      paid: '已缴费',
+      history: '历史'
+    };
+    return textMap[activeTab] || '';
+  };
+
   return (
     <ScrollView scrollY className={styles.container}>
       <View className={styles.statsCard}>
@@ -206,7 +218,7 @@ const ParkingFeePage: React.FC = () => {
       {currentList.length > 0 ? (
         currentList.map((record) => {
           const currentFee = calculateFee(record.id);
-          const duration = getParkingDuration(record.enterTime);
+          const duration = getParkingDuration(record.enterTime, record.exitTime);
           const overtime = activeTab === 'parking' && isOvertime(record.enterTime);
           
           return (
@@ -292,7 +304,7 @@ const ParkingFeePage: React.FC = () => {
       ) : (
         <View className={styles.emptyState}>
           <View className={styles.emptyIcon}>🚗</View>
-          <Text className={styles.emptyText}>暂无{activeTab === 'parking' ? '停车中' : '历史'}记录</Text>
+          <Text className={styles.emptyText}>暂无{getEmptyText()}记录</Text>
         </View>
       )}
 
@@ -324,7 +336,7 @@ const ParkingFeePage: React.FC = () => {
               )}
               <View className={styles.detailRow}>
                 <Text className={styles.detailLabel}>停车时长</Text>
-                <Text className={styles.detailValue}>{getParkingDuration(selectedRecord.enterTime)}</Text>
+                <Text className={styles.detailValue}>{getParkingDuration(selectedRecord.enterTime, selectedRecord.exitTime)}</Text>
               </View>
               <View className={styles.detailRow}>
                 <Text className={styles.detailLabel}>车位</Text>
